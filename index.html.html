@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Você é o escalonador: o minigame dos núcleos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EEF2F4; --surface:#FFFFFF; --ink:#16213A; --muted:#5B6680; --line:#D5DCE4;
+  --die:#1F2A44; --die-line:#2C3A5E; --slot:#2A3656; --slot-ink:#8FA2CF;
+  --jogo:#2F80ED; --nav:#E07A2A; --video:#9B51E0; --musica:#1F9A57;
+  --bad:#E23D5B; --good:#1F9A57; --gold:#F2B705;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#10151F; --surface:#182030; --ink:#E6EBF3; --muted:#9AA6BC; --line:#2A3448;
+    --die:#0B111C; --die-line:#1E2840; --slot:#18223A; --slot-ink:#7082AC;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#10151F; --surface:#182030; --ink:#E6EBF3; --muted:#9AA6BC; --line:#2A3448;
+  --die:#0B111C; --die-line:#1E2840; --slot:#18223A; --slot-ink:#7082AC;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+main{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+h1,h2,h3{font-family:var(--display);line-height:1.1;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--jogo);outline-offset:2px}
+p{margin:0 0 12px}
+
+/* HUD */
+.hud{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:center;margin-bottom:14px}
+.lvl{font-family:var(--display);font-weight:800;font-size:22px}
+.lvl small{display:block;font-family:var(--body);font-weight:400;font-size:14px;color:var(--muted)}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.bar .tr{flex:1;height:12px;border-radius:6px;background:var(--line);overflow:hidden}
+.bar .tr i{display:block;height:100%;border-radius:6px;transition:width .2s linear}
+.bar .lab{width:120px;flex:none}
+.bar .val{width:64px;text-align:right;color:var(--ink);font-weight:700}
+.hearts{font-size:24px;letter-spacing:2px;min-width:90px;text-align:right}
+
+/* áreas */
+.zone{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.zh{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.zh h3{font-size:17px}
+.zh span{font-size:13.5px;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;min-height:62px;align-items:center}
+.empty{font-size:14px;color:var(--muted);font-style:italic}
+
+.th{position:relative;width:118px;height:58px;border-radius:10px;background:var(--c);color:#fff;border:3px solid transparent;padding:5px 7px;text-align:left;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.th .ic{font-size:18px;line-height:1}
+.th .nm{font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.th .pg{height:5px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
+.th .pg i{display:block;height:100%;background:#fff}
+.th .pat{position:absolute;top:0;left:0;height:4px;background:var(--gold)}
+.th .pat.low{background:var(--bad);animation:blink .5s infinite alternate}
+.th.sel{border-color:var(--ink);transform:translateY(-3px);box-shadow:0 6px 0 var(--ink)}
+.th.io{background:repeating-linear-gradient(45deg,var(--c) 0 8px,color-mix(in srgb,var(--c) 55%,#000) 8px 16px)}
+.th .tag{position:absolute;right:5px;top:5px;font-size:15px}
+@keyframes blink{to{opacity:.35}}
+
+.die{background:var(--die);border-radius:16px;padding:14px;
+  background-image:linear-gradient(var(--die-line) 1px,transparent 1px),linear-gradient(90deg,var(--die-line) 1px,transparent 1px);background-size:20px 20px;margin-bottom:12px}
+.dietop{display:flex;justify-content:space-between;color:#DCE4F5;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+.dietop b{font-family:var(--display);font-size:18px}
+.dietop span{font-size:13.5px;opacity:.8}
+.cores{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.core{background:color-mix(in srgb,var(--die) 60%,#000);border:2px solid var(--die-line);border-radius:12px;padding:8px;color:#DCE4F5}
+.core .ch{font-size:13px;margin-bottom:6px;display:flex;justify-content:space-between}
+.core .ch em{font-style:normal;color:#FFB4C1}
+.slot{width:100%;min-height:62px;border-radius:10px;background:var(--slot);border:2px dashed var(--slot-ink);color:var(--slot-ink);display:flex;align-items:center;justify-content:center;font-size:13px;margin-top:6px;padding:0}
+.slot.target{border-color:#fff;color:#fff;background:color-mix(in srgb,var(--slot) 70%,#fff 10%)}
+.slot .th{width:100%;height:58px;border:0}
+.slot.filled{border:0;background:none;padding:0}
+
+.msg{min-height:50px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-size:16px;display:flex;align-items:center;gap:10px}
+.msg b{color:var(--gold)}
+.gamebtns{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+.btn{padding:11px 18px;border-radius:10px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);font-weight:700}
+.btn.ghost{background:none;color:var(--ink)}
+.btn.big{font-size:19px;padding:14px 26px}
+
+/* telas */
+.overlay{position:fixed;inset:0;background:color-mix(in srgb,var(--bg) 70%,transparent);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:20px;z-index:10}
+.overlay[hidden]{display:none}
+.card{background:var(--surface);border:2px solid var(--ink);border-radius:18px;max-width:600px;width:100%;padding:28px;max-height:calc(100% - 20px);overflow:auto;box-shadow:0 10px 0 var(--ink)}
+.card .kick{font-size:15px;color:var(--muted);margin-bottom:6px}
+.card h2{font-size:clamp(28px,5vw,38px);font-weight:800;margin-bottom:14px}
+.card h3{font-size:19px;margin:16px 0 6px}
+.card ul{margin:0 0 12px;padding-left:20px}
+.card li{margin-bottom:6px}
+.real{border-left:5px solid var(--nav);padding:10px 14px;background:var(--bg);border-radius:0 10px 10px 0;margin:14px 0}
+.stars{font-size:40px;letter-spacing:6px;margin:4px 0 10px}
+.map{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap}
+.map span{padding:4px 10px;border-radius:99px;border:2px solid var(--line);font-size:13px;color:var(--muted)}
+.map span.on{border-color:var(--ink);color:var(--ink);font-weight:700}
+.map span.ok{border-color:var(--good);color:var(--good)}
+.difs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dif{display:flex;flex-direction:column;justify-content:flex-start;text-align:left;border:2px solid var(--line);border-radius:12px;background:none;padding:12px}
+.dif b{display:block;font-family:var(--display);font-size:19px}
+.dif span{font-size:13.5px;color:var(--muted);line-height:1.35;display:block;margin-top:2px}
+.dif[aria-checked="true"]{border-color:var(--ink);background:var(--bg);box-shadow:0 4px 0 var(--ink)}
+.hint2{font-size:14px;color:var(--muted);margin-top:8px}
+@media (max-width:560px){.difs{grid-template-columns:1fr}}
+.th,.slot{touch-action:none;user-select:none;-webkit-user-select:none}
+.th.faded{opacity:.3}
+.drag-ghost{position:fixed;left:0;top:0;z-index:20;pointer-events:none;filter:drop-shadow(0 8px 10px rgba(0,0,0,.35))}
+.drag-ghost .th{transform:rotate(-3deg) scale(1.06)}
+.slot.over{border-style:solid;border-color:var(--gold);background:color-mix(in srgb,var(--gold) 25%,var(--slot))}
+.zone.over{outline:3px solid var(--gold);outline-offset:-3px}
+.cardbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+
+@media (max-width:760px){
+  .hud{grid-template-columns:1fr auto}
+  .bars{grid-column:1/-1;order:3}
+  .cores{grid-template-columns:repeat(2,1fr)}
+  .bar .lab{width:90px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <div class="hud">
+    <div class="lvl" id="lvlname">Fase 1<small>Distribua as tarefas</small></div>
+    <div class="bars">
+      <div class="bar"><span class="lab">Tarefas feitas</span><div class="tr"><i id="goalbar" style="background:var(--good)"></i></div><span class="val" id="goalval">0/10</span></div>
+      <div class="bar"><span class="lab">Tempo</span><div class="tr"><i id="timebar" style="background:var(--jogo)"></i></div><span class="val" id="timeval">45s</span></div>
+    </div>
+    <div class="hearts" id="hearts" aria-label="Vidas"></div>
+  </div>
+
+  <div class="zone" id="qzone">
+    <div class="zh"><h3>Fila: threads querendo rodar</h3><span id="qhint">Arraste uma thread até um espaço livre, ou toque nela e depois no espaço</span></div>
+    <div class="row" id="queue"></div>
+  </div>
+
+  <div class="zone" id="iozone">
+    <div class="zh"><h3>Esperando dados ⏳</h3><span>Aqui elas esperam o disco ou a rede sem ocupar núcleo, e voltam sozinhas para a fila</span></div>
+    <div class="row" id="io"></div>
+  </div>
+
+  <div class="die">
+    <div class="dietop"><b id="cpuname">Processador</b><span id="cpuinfo"></span></div>
+    <div class="cores" id="cores"></div>
+  </div>
+
+  <div class="msg" id="msg" aria-live="polite">Prepare-se.</div>
+  <div class="gamebtns">
+    <button class="btn ghost" id="pause">Pausar</button>
+    <button class="btn ghost" id="restart">Recomeçar fase</button>
+  </div>
+</main>
+
+<div class="overlay" id="overlay"><div class="card" id="card"></div></div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const PROG={
+  jogo:{nome:'Jogo',ic:'🎮',cor:'var(--jogo)',tipos:['principal','física','áudio']},
+  nav:{nome:'Navegador',ic:'🌐',cor:'var(--nav)',tipos:['aba','vídeo','download']},
+  musica:{nome:'Música',ic:'🎵',cor:'var(--musica)',tipos:['player']},
+  video:{nome:'Render',ic:'🎬',cor:'var(--video)',tipos:['render']}
+};
+
+const LEVELS=[
+ {nome:'Distribua as tarefas',cores:4,smt:false,block:false,pat:false,hog:false,aff:false,dur:45,goal:10,spawn:1.5,
+  intro:`<p>Você agora é o <b>escalonador</b>, a parte do sistema operacional que decide qual núcleo do processador vai trabalhar em cada tarefa.</p>
+  <p>Os programas abertos criam pequenas tarefas chamadas <b>threads</b>. Elas chegam na fila e ficam esperando um núcleo livre.</p>
+  <h3>Como jogar</h3><ul><li>Segure uma thread da fila e arraste até um espaço livre de um núcleo.</li><li>Se preferir, toque na thread e depois no espaço. Se não escolher nenhuma, a primeira da fila vai para o espaço que você tocar.</li><li>Termine {META} threads antes do tempo acabar.</li></ul>`,
+  real:'No Windows, isso acontece sozinho milhares de vezes por segundo. Um núcleo parado enquanto tem gente na fila é desperdício.',
+  learn:'Threads esperam na fila, e o escalonador coloca cada uma num núcleo livre. Quanto menos núcleo parado, mais trabalho sai.'},
+ {nome:'Esperando dados',cores:4,smt:false,block:true,pat:false,hog:false,aff:false,dur:50,goal:12,spawn:1.4,
+  intro:`<p>Às vezes uma thread precisa de algo que não está pronto: um arquivo do disco, uma resposta da internet. Ela fica parada, <b>listrada e com ⏳</b>, esperando.</p>
+  <p>Se ela continuar no núcleo, o núcleo fica ocupado sem fazer nada.</p>
+  <h3>Novidade</h3><ul><li>Toque numa thread com ⏳, ou arraste-a até a área "Esperando dados", para tirá-la do núcleo. Ela vai para a área "Esperando dados" e volta sozinha para a fila quando o dado chegar.</li><li>Use o núcleo liberado para outra thread.</li></ul>`,
+  real:'O sistema operacional tira do núcleo toda thread que para para esperar dados. Assim o núcleo nunca fica "segurando" alguém que não está trabalhando.',
+  learn:'Thread esperando dado sai do núcleo. É por isso que o PC consegue baixar algo e continuar respondendo ao mesmo tempo.'},
+ {nome:'Todo mundo tem sua vez',cores:4,smt:false,block:true,pat:true,hog:true,aff:false,dur:60,goal:14,spawn:1.3,
+  intro:`<p>Chegaram threads de <b>🎬 Render</b>, que demoram muito. Se elas ocuparem todos os núcleos, as outras esperam demais e o programa delas <b>trava</b>.</p>
+  <p>A barrinha amarela no topo de cada thread é a paciência. Se ficar vermelha e zerar, você perde um ❤️.</p>
+  <h3>Novidade</h3><ul><li>Toque numa thread que está rodando, ou arraste-a de volta para a fila, para ela ir ao fim da fila. Ela guarda o progresso.</li><li>Reveze: deixe as tarefas longas darem a vez às curtas.</li></ul>`,
+  real:'Isso se chama fatia de tempo. Cada thread roda um pouquinho e dá a vez. É por isso que o mouse continua mexendo mesmo com um vídeo renderizando.',
+  learn:'O escalonador reveza as threads em fatias de tempo, para que nenhuma tarefa longa trave as outras.'},
+ {nome:'Dois por núcleo e cache quente',cores:4,smt:true,block:true,pat:true,hog:true,aff:true,dur:60,goal:20,spawn:1.0,
+  intro:`<p>Agora cada núcleo tem <b>2 espaços</b> (isso é o SMT). Mas dois dividindo o mesmo núcleo rodam mais devagar: cada um a cerca de 60% da velocidade.</p>
+  <p>Cada núcleo também tem um <b>cache</b>, uma memória rápida. Se uma thread volta para o mesmo núcleo de antes, os dados dela ainda estão lá e ela roda <b>30% mais rápido</b> 🔥.</p>
+  <h3>Dicas</h3><ul><li>Prefira núcleos totalmente vazios antes de dividir um.</li><li>Threads com 🔥 na fila têm um núcleo "preferido", marcado com 🔥 também.</li></ul>`,
+  real:'O escalonador de verdade faz exatamente essas escolhas: prefere núcleos vazios e tenta devolver cada thread ao núcleo onde ela já estava. Os 96 MB de cache do Ryzen 7 5700X3D deixam o "cache quente" ainda mais valioso.',
+  learn:'Dois espaços por núcleo aproveitam melhor o processador, mas dividir custa velocidade. Voltar ao mesmo núcleo aproveita o cache.'}
+];
+
+const DIFS={
+  facil:{nome:'Fácil',desc:'Mais tempo, menos tarefas e threads bem pacientes. Bom para aprender.',dur:1.4,goal:.75,spawn:1.3,pat:.45,hog:.18,hearts:5},
+  normal:{nome:'Normal',desc:'Um desafio equilibrado.',dur:1.15,goal:.9,spawn:1.1,pat:.75,hog:.25,hearts:3},
+  dificil:{nome:'Difícil',desc:'Pouco tempo, fila cheia e threads impacientes.',dur:.95,goal:1.1,spawn:.9,pat:1.2,hog:.35,hearts:3}
+};
+let dif='normal';
+try{const d=localStorage.getItem('esc-dif');if(DIFS[d])dif=d}catch(e){}
+const D=()=>DIFS[dif];
+function levelCfg(i){const b=LEVELS[i],d=D();return {...b,dur:Math.round(b.dur*d.dur),goal:Math.max(5,Math.round(b.goal*d.goal)),spawn:b.spawn*d.spawn}}
+let L,li=0,threads,slots,sel,uid,time,done,hearts,spawnT,running=false,paused=false,auto=false,results=[],last=0,msgT=0;
+
+function setMsg(h,t=2.5){$('msg').innerHTML=h;msgT=t}
+function mkThread(){
+  let keys=['jogo','nav','musica'];
+  if(L.hog&&Math.random()<D().hog)keys=['video'];
+  const k=keys[Math.floor(Math.random()*keys.length)],p=PROG[k];
+  const hog=k==='video';
+  const work=hog?9+Math.random()*4:2.5+Math.random()*2.5;
+  return {id:++uid,k,ic:p.ic,cor:p.cor,nome:p.tipos[Math.floor(Math.random()*p.tipos.length)],
+    work,prog:0,state:'fila',pat:1,last:-1,
+    blockAt:L.block&&!hog&&Math.random()<.6?.3+Math.random()*.4:null,io:0,blocked:false};
+}
+function start(i){
+  li=i;L=levelCfg(i);threads=[];sel=null;uid=0;time=L.dur;done=0;hearts=D().hearts;spawnT=.3;
+  slots=[];for(let c=0;c<L.cores;c++)for(let s=0;s<(L.smt?2:1);s++)slots.push({c,s,t:null,since:0});
+  for(let n=0;n<3;n++)threads.push(mkThread());
+  $('lvlname').innerHTML=(auto?'Modo automático':'Fase '+(i+1))+`<small>${L.nome} · ${D().nome}</small>`;
+  $('iozone').hidden=!L.block;
+  $('qhint').textContent=auto?'O sistema escolhe sozinho qual thread vai para qual núcleo':'Arraste uma thread até um espaço livre, ou toque nela e depois no espaço';
+  $('cpuname').textContent=L.smt?'Ryzen com SMT':'Processador de 4 núcleos';
+  $('cpuinfo').textContent=L.smt?`${L.cores} núcleos · 2 espaços em cada`:`${L.cores} núcleos · 1 espaço em cada`;
+  $('hearts').style.visibility=L.pat?'visible':'hidden';
+  buildCores();
+  setMsg(auto?'O sistema operacional está no controle. Veja as escolhas que ele faz.':'Vai! Coloque as threads nos núcleos.');
+  running=true;paused=false;$('pause').textContent='Pausar';
+  $('overlay').hidden=true;last=performance.now();
+}
+function buildCores(){
+  const el=$('cores');el.innerHTML='';
+  for(let c=0;c<L.cores;c++){
+    const d=document.createElement('div');d.className='core';d.id='core'+c;
+    let h=`<div class="ch"><span>Núcleo ${c+1}</span><em id="cw${c}"></em></div>`;
+    slots.filter(s=>s.c===c).forEach(s=>h+=`<button class="slot" data-slot="${slots.indexOf(s)}" id="slot${slots.indexOf(s)}"></button>`);
+    d.innerHTML=h;el.appendChild(d);
+  }
+}
+const queue=()=>threads.filter(t=>t.state==='fila');
+function coreBusy(c){return slots.filter(s=>s.c===c&&s.t).length}
+
+function place(t,s){
+  const sl=slots[s];if(sl.t)return;
+  sl.t=t;sl.since=0;t.state='run';sel=null;
+  const hot=L.aff&&t.last===sl.c;
+  const shared=L.smt&&coreBusy(sl.c)===2;
+  if(!auto){
+    if(hot)setMsg('🔥 <b>Cache quente!</b> Ela voltou ao núcleo de antes e vai rodar 30% mais rápido.');
+    else if(shared&&slots.some(x=>!x.t&&coreBusy(x.c)===0))setMsg('Ela vai dividir o núcleo. Tinha um núcleo totalmente vazio, que seria mais rápido.');
+  }
+}
+function unplace(sl,why){
+  const t=sl.t;sl.t=null;t.last=sl.c;
+  if(why==='io'){t.state='io';t.io=Math.max(t.io,1.5);if(!auto)setMsg('Boa! A thread foi esperar os dados <b>fora</b> do núcleo, e o núcleo ficou livre.')}
+  else{t.state='fila';threads.splice(threads.indexOf(t),1);threads.push(t);
+    if(!auto)setMsg(L.pat?'Thread de volta ao fim da fila, com o progresso guardado. <b>Revezamento!</b>':'Thread devolvida à fila. Ela guarda o progresso.')}
+}
+
+/* ---------- interação: tocar ou arrastar ----------
+   A tela é redesenhada o tempo todo, então nada depende do "click" do navegador:
+   gravamos o que foi apertado no pointerdown e decidimos no pointerup
+   (sem movimento = toque; com movimento = arrastar e soltar). */
+let press=null,drag=null,ghost=null,hover=null;
+const DRAG_MIN=8;
+function targetAt(x,y){
+  const el=document.elementFromPoint(x,y);if(!el)return null;
+  const sl=el.closest('[data-slot]');if(sl)return {kind:'slot',i:+sl.dataset.slot};
+  if(el.closest('#qzone'))return {kind:'fila'};
+  if(el.closest('#iozone'))return {kind:'io'};
+  return null;
+}
+function validDrop(tg){
+  if(!drag||!tg)return false;
+  const t=drag.t;
+  if(tg.kind==='slot')return !slots[tg.i].t;
+  if(drag.from==='slot'&&tg.kind==='fila')return true;
+  if(drag.from==='slot'&&tg.kind==='io')return t.blocked;
+  return false;
+}
+function tap(p){
+  if(p.kind==='th'){sel=sel===p.id?null:p.id;return}
+  const slot=slots[p.i];
+  if(slot.t){slot.t.blocked?unplace(slot,'io'):unplace(slot,'fila');return}
+  let t=sel?threads.find(x=>x.id===sel&&x.state==='fila'):null;
+  if(!t)t=queue()[0];
+  if(t)place(t,p.i);else setMsg('A fila está vazia. Aguarde novas threads.',1.5);
+}
+document.addEventListener('pointerdown',e=>{
+  if(e.button!==0||!running||paused||auto)return;
+  const th=e.target.closest('[data-th]'),sl=e.target.closest('[data-slot]');
+  if(th)press={kind:'th',id:+th.dataset.th,x:e.clientX,y:e.clientY,pid:e.pointerId};
+  else if(sl){
+    const i=+sl.dataset.slot;
+    if(!slots[i].t){tap({kind:'slot',i});draw();return} // espaço vazio: age na hora
+    press={kind:'slot',i,id:slots[i].t.id,x:e.clientX,y:e.clientY,pid:e.pointerId};
+  }else return;
+  try{document.body.setPointerCapture(e.pointerId)}catch(err){}
+  e.preventDefault();
+});
+document.addEventListener('pointermove',e=>{
+  if(!press||e.pointerId!==press.pid)return;
+  if(!drag){
+    if(Math.hypot(e.clientX-press.x,e.clientY-press.y)<DRAG_MIN)return;
+    const t=threads.find(x=>x.id===press.id);
+    if(!t||(press.kind==='th'&&t.state!=='fila')||(press.kind==='slot'&&slots[press.i].t!==t)){press=null;return}
+    sel=null;
+    ghost=document.createElement('div');ghost.className='drag-ghost';ghost.innerHTML=chip(t);document.body.appendChild(ghost);
+    drag={t,from:press.kind,i:press.i};t.dragging=true;
+  }
+  ghost.style.transform=`translate(${e.clientX-59}px,${e.clientY-29}px)`;
+  const tg=targetAt(e.clientX,e.clientY);
+  hover=validDrop(tg)?tg:null;
+  draw();
+});
+function endPress(e,cancel){
+  if(!press||(e&&e.pointerId!==press.pid))return;
+  if(drag){
+    const t=drag.t;t.dragging=false;
+    if(!cancel&&hover&&running){
+      if(hover.kind==='slot'){
+        if(drag.from==='slot'){const o=slots[drag.i];o.t=null;t.last=o.c;t.state='fila'}
+        if(t.state==='fila')place(t,hover.i);
+      }else if(drag.from==='slot'&&slots[drag.i].t===t){
+        unplace(slots[drag.i],t.blocked||hover.kind==='io'?'io':'fila');
+      }
+    }
+    ghost&&ghost.remove();ghost=null;drag=null;hover=null;
+  }else if(!cancel&&running&&!paused){
+    const p=press;
+    if(p.kind==='th'||slots[p.i].t)tap(p);
+  }
+  press=null;draw();
+}
+document.addEventListener('pointerup',e=>endPress(e,false));
+document.addEventListener('pointercancel',e=>endPress(e,true));
+// teclado (Enter/Espaço) continua funcionando como toque
+document.addEventListener('click',e=>{
+  if(e.detail!==0||!running||paused||auto)return;
+  const th=e.target.closest('[data-th]'),sl=e.target.closest('[data-slot]');
+  if(th)tap({kind:'th',id:+th.dataset.th});else if(sl)tap({kind:'slot',i:+sl.dataset.slot});
+  draw();
+});
+
+function autoPlay(){
+  slots.forEach(s=>{if(s.t&&s.t.blocked)unplace(s,'io')});
+  const q=queue().sort((a,b)=>a.pat-b.pat);
+  // revezar: se alguém está impaciente e todos ocupados, tira quem roda há mais tempo
+  if(q.length&&q[0].pat<.55&&!slots.some(s=>!s.t)){
+    const v=slots.filter(s=>s.t&&s.since>1.2).sort((a,b)=>b.since-a.since)[0];
+    if(v)unplace(v,'fila');
+  }
+  for(const t of queue().sort((a,b)=>a.pat-b.pat)){
+    const free=slots.map((s,i)=>[s,i]).filter(([s])=>!s.t);if(!free.length)break;
+    let pick=free.find(([s])=>s.c===t.last&&coreBusy(s.c)===0)||free.find(([s])=>coreBusy(s.c)===0)||free.find(([s])=>s.c===t.last)||free[0];
+    place(t,pick[1]);
+  }
+}
+
+function step(dt){
+  time-=dt;msgT-=dt;
+  spawnT-=dt;
+  if(spawnT<=0){spawnT=L.spawn*(.7+Math.random()*.6);if(queue().length<10)threads.push(mkThread())}
+  // io
+  threads.forEach(t=>{
+    if(t.state==='io'){t.io-=dt;if(t.io<=0){t.state='fila';t.blocked=false;threads.splice(threads.indexOf(t),1);threads.push(t)}}
+    if(t.state==='fila'&&L.pat){t.pat-=dt*D().pat/(t.k==='video'?14:9);
+      if(t.pat<=0){t.pat=1;hearts--;setMsg(`💔 <b>${PROG[t.k].nome} parou de responder!</b> Uma thread esperou demais na fila.`,3)}}
+  });
+  // rodando
+  slots.forEach(s=>{
+    const t=s.t;if(!t)return;s.since+=dt;
+    if(L.pat)t.pat=Math.min(1,t.pat+dt*.5);
+    if(t.blocked){t.io-=dt;if(t.io<=0){t.blocked=false}return}
+    let v=1;
+    if(L.smt&&slots.filter(x=>x.c===s.c&&x.t&&!x.t.blocked).length===2)v*=.6;
+    if(L.aff&&t.last===s.c)v*=1.3;
+    t.prog+=v*dt/t.work;
+    if(t.blockAt!==null&&t.prog>=t.blockAt){t.blockAt=null;t.blocked=true;t.io=3.5;
+      if(!auto&&li===1)setMsg('⏳ Uma thread está esperando dados e <b>travando o núcleo</b>. Toque nela ou arraste-a para a área de espera.')}
+    if(t.prog>=1){s.t=null;t.state='feita';done++;threads.splice(threads.indexOf(t),1)}
+  });
+  if(auto)autoPlay();
+  if(done>=L.goal)end(true);
+  else if(hearts<=0)end(false,'Programas demais travaram por esperar na fila.');
+  else if(time<=0)end(false,'O tempo acabou antes de terminar as tarefas.');
+}
+
+function chip(t,extra=''){
+  const hotq=L.aff&&t.last>=0&&t.state==='fila';
+  return `<div class="th ${t.blocked?'io':''} ${sel===t.id?'sel':''} ${t.dragging?'faded':''}" style="--c:${t.cor}" ${extra}>
+    ${L.pat?`<span class="pat ${t.pat<.35?'low':''}" style="width:${t.pat*100}%"></span>`:''}
+    <span class="ic">${t.ic}</span>${t.blocked?'<span class="tag">⏳</span>':hotq?`<span class="tag" title="Núcleo preferido: ${t.last+1}">🔥${t.last+1}</span>`:''}
+    <span class="nm">${PROG[t.k].nome} · ${t.nome}</span>
+    <span class="pg"><i style="width:${Math.min(100,t.prog*100)}%"></i></span></div>`;
+}
+function draw(){
+  const q=queue();
+  $('queue').innerHTML=q.length?q.map(t=>`<button class="th-wrap" data-th="${t.id}" style="all:unset;cursor:pointer" aria-label="Selecionar ${PROG[t.k].nome}">${chip(t)}</button>`).join(''):'<span class="empty">Fila vazia. Novas threads chegam a qualquer momento.</span>';
+  const io=threads.filter(t=>t.state==='io');
+  $('io').innerHTML=io.length?io.map(t=>chip(t)).join(''):'<span class="empty">Ninguém esperando dados.</span>';
+  slots.forEach((s,i)=>{
+    const el=$('slot'+i);
+    if(s.t){el.className='slot filled';el.innerHTML=chip(s.t);el.setAttribute('aria-label','Tirar thread do núcleo')}
+    else{el.className='slot'+(q.length||drag?' target':'')+(hover&&hover.kind==='slot'&&hover.i===i?' over':'');el.textContent='livre';el.setAttribute('aria-label','Espaço livre')}
+  });
+  $('qzone').classList.toggle('over',!!(hover&&hover.kind==='fila'));
+  $('iozone').classList.toggle('over',!!(hover&&hover.kind==='io'));
+  for(let c=0;c<L.cores;c++){
+    const cw=$('cw'+c);
+    const hotHere=L.aff&&q.some(t=>t.last===c);
+    const wasted=slots.some(s=>s.c===c&&s.t&&s.t.blocked);
+    cw.textContent=wasted?'parado esperando':(L.smt&&coreBusy(c)===2?'dividido: 60%':hotHere?'🔥 cache de alguém':'');
+  }
+  $('goalbar').style.width=Math.min(100,done/L.goal*100)+'%';$('goalval').textContent=`${done}/${L.goal}`;
+  $('timebar').style.width=Math.max(0,time/L.dur*100)+'%';$('timeval').textContent=Math.max(0,Math.ceil(time))+'s';
+  $('timebar').style.background=time<10?'var(--bad)':'var(--jogo)';
+  $('hearts').textContent='❤️'.repeat(Math.max(0,hearts))+'🤍'.repeat(D().hearts-Math.max(0,hearts));
+}
+function loop(now){
+  const dt=Math.min(.1,(now-last)/1000);last=now;
+  if(running&&!paused){step(dt);if(running)draw()}
+  requestAnimationFrame(loop);
+}
+
+/* telas */
+function mapHtml(){return `<div class="map">${LEVELS.map((l,i)=>`<span class="${i===li?'on':results[i]?'ok':''}">${results[i]?'✓ ':''}Fase ${i+1}</span>`).join('')}</div>`}
+function show(html){$('card').innerHTML=html;$('overlay').hidden=false;const b=$('card').querySelector('.btn');b&&b.focus()}
+function intro(i){
+  li=i;running=false;const l=levelCfg(i);
+  show(`<div class="kick">Fase ${i+1} de ${LEVELS.length} · ${D().nome}</div><h2>${l.nome}</h2>${l.intro.replace('{META}',l.goal)}
+  <p><b>Meta:</b> ${l.goal} tarefas em ${l.dur} segundos${l.pat?` · ${D().hearts} vidas`:''}.</p>
+  <div class="real"><b>Na vida real:</b> ${l.real}</div>
+  <div class="cardbtns"><button class="btn big" data-go="play">Jogar fase ${i+1}</button></div>`);
+}
+function end(win,why){
+  running=false;
+  if(auto){auto=false;show(`<h2>Viu só?</h2><p>O escalonador automático tirou do núcleo quem parou para esperar dados, revezou as tarefas longas, preferiu núcleos vazios e devolveu threads ao núcleo de antes.</p><p>No computador de verdade ele faz isso milhares de vezes por segundo, com centenas de threads, sem você perceber.</p><div class="cardbtns"><button class="btn big" data-go="menu">Voltar ao início</button></div>`);return}
+  if(win){
+    const mh=D().hearts,st=L.pat?(hearts===mh?3:hearts>=mh/2?2:1):time>L.dur*.3?3:time>L.dur*.12?2:1;
+    results[li]=true;
+    const lastL=li===LEVELS.length-1;
+    show(`<div class="kick">Fase ${li+1} concluída</div><h2>Mandou bem!</h2><div class="stars">${'⭐'.repeat(st)}${'☆'.repeat(3-st)}</div>
+    <p><b>O que você aprendeu:</b> ${L.learn}</p>${mapHtml()}
+    <div class="cardbtns">${lastL?'<button class="btn big" data-go="final">Ver o final</button>':`<button class="btn big" data-go="next">Próxima fase</button>`}<button class="btn ghost" data-go="retry">Jogar de novo</button></div>`);
+  }else{
+    show(`<div class="kick">Fase ${li+1}</div><h2>Quase!</h2><p>${why}</p>
+    <div class="real"><b>Dica:</b> ${li===0?'Não deixe núcleos vazios enquanto houver threads na fila.':li===1?'Tire logo do núcleo as threads com ⏳.':li===2?'Quando uma barrinha ficar vermelha, tire um 🎬 Render do núcleo para liberar espaço.':'Prefira núcleos vazios, use os 🔥 e não esqueça de revezar os Renders.'}</div>
+    <div class="cardbtns"><button class="btn big" data-go="retry">Tentar de novo</button>${dif!=='facil'?`<button class="btn ghost" data-go="easier">Tentar no ${dif==='dificil'?'Normal':'Fácil'}</button>`:''}</div>`);
+  }
+}
+function final(){
+  show(`<h2>Você foi o escalonador</h2>
+  <p>Tudo o que você fez com o dedo, o sistema operacional faz sozinho:</p>
+  <ul><li>Coloca threads da fila em núcleos livres.</li><li>Tira do núcleo quem para para esperar dados.</li><li>Reveza as tarefas longas em fatias de tempo, para nada travar.</li><li>Prefere núcleos vazios e tenta devolver cada thread ao núcleo de antes, por causa do cache.</li></ul>
+  <div class="real"><b>E os processadores?</b> Com mais núcleos, como os 8 do Ryzen 7 5700X3D contra os 6 do Ryzen 5 5500, cabe mais thread ao mesmo tempo. Com mais cache, voltar ao núcleo certo rende ainda mais, o que ajuda muito em jogos.</div>
+  <div class="cardbtns"><button class="btn big" data-go="auto">Ver o sistema jogar sozinho</button><button class="btn ghost" data-go="menu">Voltar ao início</button></div>`);
+}
+function menu(){
+  running=false;
+  show(`<div class="kick">Minigame</div><h2>Você é o escalonador</h2>
+  <p>Todo programa aberto no computador cria pequenas tarefas, as <b>threads</b>. Alguém precisa decidir qual núcleo do processador vai cuidar de cada uma. Esse alguém é o sistema operacional.</p>
+  <p>Neste jogo, é você. São ${LEVELS.length} fases curtas, e cada uma ensina uma regra que o Windows usa de verdade.</p>
+  <h3>Escolha a dificuldade</h3>
+  <div class="difs" role="radiogroup" aria-label="Dificuldade">${Object.entries(DIFS).map(([k,d])=>`<button class="dif" role="radio" aria-checked="${k===dif}" data-dif="${k}"><b>${d.nome}</b><span>${d.desc}</span></button>`).join('')}</div>
+  <p class="hint2">Dá para trocar sempre que voltar ao início.</p>
+  ${mapHtml()}
+  <div class="cardbtns"><button class="btn big" data-go="first">Começar</button>${results.some(Boolean)?'<button class="btn ghost" data-go="final">Pular para o final</button>':''}</div>`);
+}
+$('card').addEventListener('click',e=>{
+  const dv=e.target.closest('[data-dif]');
+  if(dv){dif=dv.dataset.dif;try{localStorage.setItem('esc-dif',dif)}catch(err){}
+    document.querySelectorAll('[data-dif]').forEach(b=>b.setAttribute('aria-checked',b.dataset.dif===dif));return}
+  const g=e.target.closest('[data-go]');if(!g)return;
+  const a=g.dataset.go;
+  if(a==='first')intro(0);
+  else if(a==='play'){auto=false;start(li)}
+  else if(a==='next')intro(li+1);
+  else if(a==='retry')start(li);
+  else if(a==='easier'){dif=dif==='dificil'?'normal':'facil';try{localStorage.setItem('esc-dif',dif)}catch(err){}start(li)}
+  else if(a==='final')final();
+  else if(a==='menu')menu();
+  else if(a==='auto'){auto=true;start(3)}
+});
+$('pause').onclick=()=>{if(!running)return;paused=!paused;$('pause').textContent=paused?'Continuar':'Pausar';setMsg(paused?'Jogo pausado.':'De volta ao jogo!')};
+$('restart').onclick=()=>{if(L){auto=false;start(li)}};
+
+L=LEVELS[0];threads=[];slots=[];for(let c=0;c<4;c++)slots.push({c,s:0,t:null,since:0});buildCores();draw();
+menu();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
