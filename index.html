@@ -121,11 +121,45 @@ p{margin:0 0 12px}
 .zone.over{outline:3px solid var(--gold);outline-offset:-3px}
 .cardbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 
+.zh h3 .cnt{font-style:normal;font-family:var(--body);font-weight:400;font-size:14px;color:var(--muted);margin-left:4px}
+
 @media (max-width:760px){
-  .hud{grid-template-columns:1fr auto}
-  .bars{grid-column:1/-1;order:3}
-  .cores{grid-template-columns:repeat(2,1fr)}
-  .bar .lab{width:90px}
+  main{padding:10px 10px 20px}
+  .hud{grid-template-columns:1fr auto;gap:6px 12px;margin-bottom:8px}
+  .bars{grid-column:1/-1;order:3;gap:4px}
+  .bar{font-size:12.5px;gap:8px}
+  .bar .lab{width:92px}
+  .bar .val{width:44px}
+  .bar .tr{height:9px}
+  .lvl{font-size:18px}
+  .lvl small{font-size:12.5px}
+  .hearts{font-size:18px;min-width:0}
+  .zone{padding:8px 10px;margin-bottom:8px}
+  .zh{margin-bottom:2px}
+  .zh h3{font-size:15px}
+  .zh span{display:none}
+  /* fila e espera numa linha só, rolando para o lado: a altura não muda quando chegam mais threads */
+  .row{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;height:62px;min-height:0;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .row>.empty{flex:1;font-size:13px}
+  /* deslizar para o lado rola a fila; arrastar para baixo leva a thread ao núcleo */
+  .row .th{flex:none;width:88px;height:50px;touch-action:pan-x}
+  .die{padding:8px;margin-bottom:8px;border-radius:12px}
+  .dietop{margin-bottom:6px}
+  .dietop b{font-size:15px}
+  .dietop span{font-size:12px}
+  .cores{gap:6px}
+  .core{padding:5px;border-radius:10px}
+  .core .ch{flex-direction:column;font-size:11.5px;margin-bottom:0}
+  .core .ch em{font-size:10.5px;min-height:1.4em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot{min-height:50px;margin-top:4px}
+  .slot .th{height:50px}
+  .th{padding:4px 5px}
+  .th .nm{font-size:10.5px}
+  .th .ic{font-size:16px}
+  .th .tag{font-size:13px;right:4px;top:4px}
+  .msg{min-height:0;font-size:14px;padding:9px 12px;line-height:1.35}
+  .gamebtns{margin-top:8px}
+  .gamebtns .btn{padding:8px 14px;font-size:14px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -142,7 +176,7 @@ p{margin:0 0 12px}
   </div>
 
   <div class="zone" id="qzone">
-    <div class="zh"><h3>Fila: threads querendo rodar</h3><span id="qhint">Arraste uma thread até um espaço livre, ou toque nela e depois no espaço</span></div>
+    <div class="zh"><h3>Fila: threads querendo rodar<em class="cnt" id="qn"></em></h3><span id="qhint">Arraste uma thread até um espaço livre, ou toque nela e depois no espaço</span></div>
     <div class="row" id="queue"></div>
   </div>
 
@@ -168,6 +202,7 @@ p{margin:0 0 12px}
 <script>
 (function(){
 const $=id=>document.getElementById(id);
+const narrow=matchMedia('(max-width:560px)');
 const PROG={
   jogo:{nome:'Jogo',ic:'🎮',cor:'var(--jogo)',tipos:['principal','física','áudio']},
   nav:{nome:'Navegador',ic:'🌐',cor:'var(--nav)',tipos:['aba','vídeo','download']},
@@ -415,13 +450,15 @@ function draw(){
     if(s.t){el.className='slot filled';el.innerHTML=chip(s.t);el.setAttribute('aria-label','Tirar thread do núcleo')}
     else{el.className='slot'+(q.length||drag?' target':'')+(hover&&hover.kind==='slot'&&hover.i===i?' over':'');el.textContent='livre';el.setAttribute('aria-label','Espaço livre')}
   });
+  $('qn').textContent=q.length?`(${q.length})`:'';
   $('qzone').classList.toggle('over',!!(hover&&hover.kind==='fila'));
   $('iozone').classList.toggle('over',!!(hover&&hover.kind==='io'));
+  const nw=narrow.matches;
   for(let c=0;c<L.cores;c++){
     const cw=$('cw'+c);
     const hotHere=L.aff&&q.some(t=>t.last===c);
     const wasted=slots.some(s=>s.c===c&&s.t&&s.t.blocked);
-    cw.textContent=wasted?'parado esperando':(L.smt&&coreBusy(c)===2?'dividido: 60%':hotHere?'🔥 cache de alguém':'');
+    cw.textContent=wasted?(nw?'⏳ parado':'parado esperando'):(L.smt&&coreBusy(c)===2?(nw?'dividido':'dividido: 60%'):hotHere?(nw?'🔥 cache':'🔥 cache de alguém'):'');
   }
   $('goalbar').style.width=Math.min(100,done/L.goal*100)+'%';$('goalval').textContent=`${done}/${L.goal}`;
   $('timebar').style.width=Math.max(0,time/L.dur*100)+'%';$('timeval').textContent=Math.max(0,Math.ceil(time))+'s';
