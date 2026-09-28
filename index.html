@@ -138,11 +138,14 @@ p{margin:0 0 12px}
   .zh{margin-bottom:2px}
   .zh h3{font-size:15px}
   .zh span{display:none}
-  /* fila e espera numa linha só, rolando para o lado: a altura não muda quando chegam mais threads */
-  .row{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;height:62px;min-height:0;overscroll-behavior-x:contain;scrollbar-width:thin}
-  .row>.empty{flex:1;font-size:13px}
-  /* deslizar para o lado rola a fila; arrastar para baixo leva a thread ao núcleo */
-  .row .th{flex:none;width:88px;height:50px;touch-action:pan-x}
+  /* fila e espera em grade de altura fixa: a tela não desce quando chegam mais threads.
+     O que não couber vira um "+N" (o JS lê quantas colunas e linhas a grade tem). */
+  .row{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));grid-template-rows:repeat(2,52px);gap:6px;min-height:0;padding-top:3px}
+  #io{grid-template-rows:44px}
+  .row>.empty{grid-column:1/-1;align-self:center;font-size:13px}
+  .row .th{width:100%;height:52px}
+  #io .th{height:44px}
+  .row .more{display:flex;align-items:center;justify-content:center;border:2px dashed var(--line);border-radius:10px;color:var(--muted);font-weight:700;font-size:15px}
   .die{padding:8px;margin-bottom:8px;border-radius:12px}
   .dietop{margin-bottom:6px}
   .dietop b{font-size:15px}
@@ -354,11 +357,28 @@ document.addEventListener('pointermove',e=>{
     ghost=document.createElement('div');ghost.className='drag-ghost';ghost.innerHTML=chip(t);document.body.appendChild(ghost);
     drag={t,from:press.kind,i:press.i};t.dragging=true;
   }
-  ghost.style.transform=`translate(${e.clientX-59}px,${e.clientY-29}px)`;
+  // no toque, a thread arrastada fica acima do dedo para não esconder o espaço de destino
+  const up=e.pointerType==='touch'?58+18:29;
+  ghost.style.transform=`translate(${e.clientX-59}px,${e.clientY-up}px)`;
   const tg=targetAt(e.clientX,e.clientY);
-  hover=validDrop(tg)?tg:null;
+  hover=validDrop(tg)?tg:nearSlot(e.clientX,e.clientY,tg);
   draw();
 });
+// ímã: perto do processador, a thread vai para o espaço livre mais próximo do dedo
+const SNAP=40;
+function nearSlot(x,y,tg){
+  if(tg&&tg.kind==='slot'&&drag.from==='slot'&&tg.i===drag.i)return null; // ainda em cima de onde saiu
+  const r=document.querySelector('.die').getBoundingClientRect();
+  if(x<r.left-SNAP||x>r.right+SNAP||y<r.top-SNAP||y>r.bottom+SNAP)return null;
+  let best=null,bd=Infinity;
+  slots.forEach((s,i)=>{
+    if(s.t)return;
+    const b=$('slot'+i).getBoundingClientRect();
+    const d=Math.hypot(Math.max(b.left-x,0,x-b.right),Math.max(b.top-y,0,y-b.bottom));
+    if(d<bd){bd=d;best={kind:'slot',i}}
+  });
+  return best;
+}
 function endPress(e,cancel){
   if(!press||(e&&e.pointerId!==press.pid))return;
   if(drag){
@@ -440,11 +460,21 @@ function chip(t,extra=''){
     <span class="nm">${PROG[t.k].nome} · ${t.nome}</span>
     <span class="pg"><i style="width:${Math.min(100,t.prog*100)}%"></i></span></div>`;
 }
+// no celular a fila é uma grade de tamanho fixo: mostra só o que cabe e resume o resto em "+N"
+function fit(el,list){
+  const cs=getComputedStyle(el);
+  if(cs.display!=='grid')return {show:list,more:0};
+  const cap=cs.gridTemplateColumns.split(' ').length*cs.gridTemplateRows.split(' ').length;
+  return list.length>cap?{show:list.slice(0,cap-1),more:list.length-cap+1}:{show:list,more:0};
+}
+const more=n=>n?`<span class="more" aria-label="Mais ${n} na fila">+${n}</span>`:'';
 function draw(){
   const q=queue();
-  $('queue').innerHTML=q.length?q.map(t=>`<button class="th-wrap" data-th="${t.id}" style="all:unset;cursor:pointer" aria-label="Selecionar ${PROG[t.k].nome}">${chip(t)}</button>`).join(''):'<span class="empty">Fila vazia. Novas threads chegam a qualquer momento.</span>';
+  const fq=fit($('queue'),q);
+  $('queue').innerHTML=q.length?fq.show.map(t=>`<button class="th-wrap" data-th="${t.id}" style="all:unset;cursor:pointer" aria-label="Selecionar ${PROG[t.k].nome}">${chip(t)}</button>`).join('')+more(fq.more):'<span class="empty">Fila vazia. Novas threads chegam a qualquer momento.</span>';
   const io=threads.filter(t=>t.state==='io');
-  $('io').innerHTML=io.length?io.map(t=>chip(t)).join(''):'<span class="empty">Ninguém esperando dados.</span>';
+  const fi=fit($('io'),io);
+  $('io').innerHTML=io.length?fi.show.map(t=>chip(t)).join('')+more(fi.more):'<span class="empty">Ninguém esperando dados.</span>';
   slots.forEach((s,i)=>{
     const el=$('slot'+i);
     if(s.t){el.className='slot filled';el.innerHTML=chip(s.t);el.setAttribute('aria-label','Tirar thread do núcleo')}
