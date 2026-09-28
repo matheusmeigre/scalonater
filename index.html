@@ -87,7 +87,7 @@ p{margin:0 0 12px}
 
 .msg{min-height:50px;background:var(--ink);color:var(--bg);border-radius:12px;padding:12px 16px;font-size:16px;display:flex;align-items:center;gap:10px}
 .msg b{color:var(--gold)}
-.gamebtns{display:flex;gap:8px;margin-top:10px;justify-content:flex-end}
+.gamebtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;justify-content:flex-end}
 .btn{padding:11px 18px;border-radius:10px;border:2px solid var(--ink);background:var(--ink);color:var(--bg);font-weight:700}
 .btn.ghost{background:none;color:var(--ink)}
 .btn.big{font-size:19px;padding:14px 26px}
@@ -229,6 +229,7 @@ p{margin:0 0 12px}
 
   <div class="msg" id="msg" aria-live="polite">Prepare-se.</div>
   <div class="gamebtns">
+    <button class="btn ghost" id="som" data-som></button>
     <button class="btn ghost" id="pause">Pausar</button>
     <button class="btn ghost" id="restart">Recomeçar fase</button>
   </div>
@@ -241,6 +242,84 @@ p{margin:0 0 12px}
 (function(){
 const $=id=>document.getElementById(id);
 const narrow=matchMedia('(max-width:560px),(orientation:landscape) and (max-height:520px)');
+
+/* ---------- efeitos sonoros ----------
+   Tudo sintetizado com Web Audio, sem arquivos. O navegador só libera o áudio
+   depois de um toque ou tecla, por isso unlock() roda no primeiro gesto. */
+const SFX=(()=>{
+  let ctx=null,out=null,noiseBuf=null,on=true;const lastAt={};
+  try{on=localStorage.getItem('esc-som')!=='0'}catch(e){}
+  function unlock(){
+    if(!on)return;
+    if(!ctx){
+      const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
+      ctx=new AC();out=ctx.createGain();out.gain.value=.55;out.connect(ctx.destination);
+      noiseBuf=ctx.createBuffer(1,ctx.sampleRate*.5,ctx.sampleRate);
+      const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    }
+    if(ctx.state==='suspended')ctx.resume();
+  }
+  // nota com ataque curto e queda exponencial; slide = frequência final
+  function tone(f,dur,{type='sine',vol=.2,at=0,slide=0}={}){
+    const t=ctx.currentTime+at,o=ctx.createOscillator(),g=ctx.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t);
+    if(slide)o.frequency.exponentialRampToValueAtTime(slide,t+dur);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g);g.connect(out);o.start(t);o.stop(t+dur+.03);
+  }
+  // chiado filtrado, para "vento" e impactos
+  function noise(dur,{vol=.15,at=0,freq=900,to=0}={}){
+    const t=ctx.currentTime+at,s=ctx.createBufferSource(),f=ctx.createBiquadFilter(),g=ctx.createGain();
+    s.buffer=noiseBuf;f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(freq,t);
+    if(to)f.frequency.exponentialRampToValueAtTime(to,t+dur);
+    g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    s.connect(f);f.connect(g);g.connect(out);s.start(t);s.stop(t+dur+.03);
+  }
+  const notes=(fs,{step=.1,dur=.16,type='triangle',vol=.16,last=0}={})=>
+    fs.forEach((f,i)=>tone(f,i===fs.length-1&&last?last:dur,{type,vol,at:i*step}));
+  const S={
+    // interação
+    pick:()=>tone(440,.08,{type:'triangle',vol:.14,slide:660}),                       // pegou a thread
+    hover:()=>tone(1250,.03,{vol:.05}),                                               // passou por cima de um destino válido
+    cancel:()=>tone(420,.14,{vol:.1,slide:240}),                                      // soltou fora de qualquer destino
+    select:()=>tone(740,.06,{type:'triangle',vol:.12}),
+    deselect:()=>tone(520,.06,{type:'triangle',vol:.1}),
+    invalid:()=>{tone(150,.11,{type:'square',vol:.06});tone(138,.13,{type:'square',vol:.06,at:.12})},
+    // movimentos entre áreas
+    place:()=>{tone(220,.09,{type:'triangle',vol:.28});tone(660,.08,{vol:.1,at:.03})}, // entrou no núcleo
+    hot:()=>{S.place();tone(1047,.12,{vol:.11,at:.07});tone(1568,.2,{vol:.09,at:.13})},// entrou com cache quente
+    shared:()=>{tone(220,.09,{type:'triangle',vol:.26});tone(233,.16,{type:'square',vol:.04,at:.04})}, // dividiu núcleo à toa
+    back:()=>tone(560,.15,{type:'triangle',vol:.16,slide:330}),                       // voltou para a fila
+    io:()=>{noise(.22,{vol:.12,freq:1400,to:500});tone(320,.2,{vol:.1,slide:180})},  // foi esperar dados
+    ioBack:()=>{tone(392,.07,{vol:.07});tone(523,.1,{vol:.07,at:.06})},               // dado chegou, voltou à fila
+    spawn:()=>tone(760,.05,{vol:.035,slide:940}),                                     // chegou thread nova
+    // situação das threads
+    done:()=>{tone(880,.16,{vol:.16});tone(1319,.28,{vol:.12,at:.06})},              // thread concluída
+    blocked:()=>{tone(300,.07,{type:'square',vol:.06});tone(225,.11,{type:'square',vol:.06,at:.09})}, // travou esperando dado
+    low:()=>{tone(1000,.04,{type:'square',vol:.035});tone(1000,.04,{type:'square',vol:.035,at:.08})}, // paciência ficou vermelha
+    lost:()=>{tone(330,.5,{type:'sawtooth',vol:.12,slide:70});noise(.3,{vol:.12,freq:500,to:150})}, // thread morreu, perdeu vida
+    tick:()=>tone(1500,.03,{type:'triangle',vol:.09}),                                // últimos 10 segundos
+    // telas
+    click:()=>tone(600,.04,{type:'triangle',vol:.1}),
+    pause:()=>tone(600,.12,{vol:.12,slide:400}),
+    resume:()=>tone(400,.12,{vol:.12,slide:600}),
+    win:()=>notes([523,659,784,1047],{last:.45}),
+    lose:()=>{notes([392,330,262],{step:.18,dur:.22});tone(196,.55,{type:'sawtooth',vol:.07,at:.54})},
+    final:()=>notes([523,659,784,1047,784,1047,1319],{step:.11,last:.6})
+  };
+  return {
+    unlock,
+    get on(){return on},
+    toggle(){on=!on;try{localStorage.setItem('esc-som',on?'1':'0')}catch(e){}if(on){unlock();S.select()}return on},
+    play(n){
+      if(!on||!ctx||!S[n])return;
+      const now=ctx.currentTime;if(lastAt[n]&&now-lastAt[n]<.05)return; // evita empilhar o mesmo som no mesmo instante
+      lastAt[n]=now;try{S[n]()}catch(e){}
+    }
+  };
+})();
+addEventListener('pointerdown',SFX.unlock,true);
+addEventListener('keydown',SFX.unlock,true);
 const PROG={
   jogo:{nome:'Jogo',ic:'🎮',cor:'var(--jogo)',tipos:['principal','física','áudio']},
   nav:{nome:'Navegador',ic:'🌐',cor:'var(--nav)',tipos:['aba','vídeo','download']},
@@ -329,13 +408,16 @@ function place(t,s){
   sl.t=t;sl.since=0;t.state='run';sel=null;
   const hot=L.aff&&t.last===sl.c;
   const shared=L.smt&&coreBusy(sl.c)===2;
+  const wasteful=shared&&slots.some(x=>!x.t&&coreBusy(x.c)===0);
+  SFX.play(hot?'hot':wasteful?'shared':'place');
   if(!auto){
     if(hot)setMsg('🔥 <b>Cache quente!</b> Ela voltou ao núcleo de antes e vai rodar 30% mais rápido.');
-    else if(shared&&slots.some(x=>!x.t&&coreBusy(x.c)===0))setMsg('Ela vai dividir o núcleo. Tinha um núcleo totalmente vazio, que seria mais rápido.');
+    else if(wasteful)setMsg('Ela vai dividir o núcleo. Tinha um núcleo totalmente vazio, que seria mais rápido.');
   }
 }
 function unplace(sl,why){
   const t=sl.t;sl.t=null;t.last=sl.c;
+  SFX.play(why==='io'?'io':'back');
   if(why==='io'){t.state='io';t.io=Math.max(t.io,1.5);if(!auto)setMsg('Boa! A thread foi esperar os dados <b>fora</b> do núcleo, e o núcleo ficou livre.')}
   else{t.state='fila';threads.splice(threads.indexOf(t),1);threads.push(t);
     if(!auto)setMsg(L.pat?'Thread de volta ao fim da fila, com o progresso guardado. <b>Revezamento!</b>':'Thread devolvida à fila. Ela guarda o progresso.')}
@@ -363,12 +445,12 @@ function validDrop(tg){
   return false;
 }
 function tap(p){
-  if(p.kind==='th'){sel=sel===p.id?null:p.id;return}
+  if(p.kind==='th'){sel=sel===p.id?null:p.id;SFX.play(sel?'select':'deselect');return}
   const slot=slots[p.i];
   if(slot.t){slot.t.blocked?unplace(slot,'io'):unplace(slot,'fila');return}
   let t=sel?threads.find(x=>x.id===sel&&x.state==='fila'):null;
   if(!t)t=queue()[0];
-  if(t)place(t,p.i);else setMsg('A fila está vazia. Aguarde novas threads.',1.5);
+  if(t)place(t,p.i);else{setMsg('A fila está vazia. Aguarde novas threads.',1.5);SFX.play('invalid')}
 }
 document.addEventListener('pointerdown',e=>{
   if(e.button!==0||!running||paused||auto)return;
@@ -391,12 +473,15 @@ document.addEventListener('pointermove',e=>{
     sel=null;
     ghost=document.createElement('div');ghost.className='drag-ghost';ghost.innerHTML=chip(t);document.body.appendChild(ghost);
     drag={t,from:press.kind,i:press.i};t.dragging=true;
+    SFX.play('pick');
   }
   // no toque, a thread arrastada fica acima do dedo para não esconder o espaço de destino
   const up=e.pointerType==='touch'?58+18:29;
   ghost.style.transform=`translate(${e.clientX-59}px,${e.clientY-up}px)`;
   const tg=targetAt(e.clientX,e.clientY);
+  const was=hover;
   hover=validDrop(tg)?tg:nearSlot(e.clientX,e.clientY,tg);
+  if(hover&&(!was||was.kind!==hover.kind||was.i!==hover.i))SFX.play('hover');
   draw();
 });
 // ímã: perto do processador, a thread vai para o espaço livre mais próximo do dedo
@@ -425,7 +510,7 @@ function endPress(e,cancel){
       }else if(drag.from==='slot'&&slots[drag.i].t===t){
         unplace(slots[drag.i],t.blocked||hover.kind==='io'?'io':'fila');
       }
-    }
+    }else SFX.play('cancel');
     ghost&&ghost.remove();ghost=null;drag=null;hover=null;
   }else if(!cancel&&running&&!paused){
     const p=press;
@@ -459,27 +544,30 @@ function autoPlay(){
 }
 
 function step(dt){
+  const sec=Math.ceil(time);
   time-=dt;msgT-=dt;
+  if(time>0&&time<=10&&Math.ceil(time)<sec)SFX.play('tick');
   spawnT-=dt;
-  if(spawnT<=0){spawnT=L.spawn*(.7+Math.random()*.6);if(queue().length<10)threads.push(mkThread())}
+  if(spawnT<=0){spawnT=L.spawn*(.7+Math.random()*.6);if(queue().length<10){threads.push(mkThread());SFX.play('spawn')}}
   // io
   threads.forEach(t=>{
-    if(t.state==='io'){t.io-=dt;if(t.io<=0){t.state='fila';t.blocked=false;threads.splice(threads.indexOf(t),1);threads.push(t)}}
-    if(t.state==='fila'&&L.pat){t.pat-=dt*D().pat/(t.k==='video'?14:9);
-      if(t.pat<=0){t.pat=1;hearts--;setMsg(`💔 <b>${PROG[t.k].nome} parou de responder!</b> Uma thread esperou demais na fila.`,3)}}
+    if(t.state==='io'){t.io-=dt;if(t.io<=0){t.state='fila';t.blocked=false;threads.splice(threads.indexOf(t),1);threads.push(t);SFX.play('ioBack')}}
+    if(t.state==='fila'&&L.pat){const p0=t.pat;t.pat-=dt*D().pat/(t.k==='video'?14:9);
+      if(p0>=.35&&t.pat<.35&&t.pat>0)SFX.play('low');
+      if(t.pat<=0){t.pat=1;hearts--;SFX.play('lost');setMsg(`💔 <b>${PROG[t.k].nome} parou de responder!</b> Uma thread esperou demais na fila.`,3)}}
   });
   // rodando
   slots.forEach(s=>{
     const t=s.t;if(!t)return;s.since+=dt;
     if(L.pat)t.pat=Math.min(1,t.pat+dt*.5);
-    if(t.blocked){t.io-=dt;if(t.io<=0){t.blocked=false}return}
+    if(t.blocked){t.io-=dt;if(t.io<=0){t.blocked=false;SFX.play('ioBack')}return}
     let v=1;
     if(L.smt&&slots.filter(x=>x.c===s.c&&x.t&&!x.t.blocked).length===2)v*=.6;
     if(L.aff&&t.last===s.c)v*=1.3;
     t.prog+=v*dt/t.work;
-    if(t.blockAt!==null&&t.prog>=t.blockAt){t.blockAt=null;t.blocked=true;t.io=3.5;
+    if(t.blockAt!==null&&t.prog>=t.blockAt){t.blockAt=null;t.blocked=true;t.io=3.5;SFX.play('blocked');
       if(!auto&&li===1)setMsg('⏳ Uma thread está esperando dados e <b>travando o núcleo</b>. Toque nela ou arraste-a para a área de espera.')}
-    if(t.prog>=1){s.t=null;t.state='feita';done++;threads.splice(threads.indexOf(t),1)}
+    if(t.prog>=1){s.t=null;t.state='feita';done++;threads.splice(threads.indexOf(t),1);SFX.play('done')}
   });
   if(auto)autoPlay();
   if(done>=L.goal)end(true);
@@ -548,6 +636,7 @@ function intro(i){
 }
 function end(win,why){
   running=false;
+  SFX.play(auto||win?'win':'lose');
   if(auto){auto=false;show(`<h2>Viu só?</h2><p>O escalonador automático tirou do núcleo quem parou para esperar dados, revezou as tarefas longas, preferiu núcleos vazios e devolveu threads ao núcleo de antes.</p><p>No computador de verdade ele faz isso milhares de vezes por segundo, com centenas de threads, sem você perceber.</p><div class="cardbtns"><button class="btn big" data-go="menu">Voltar ao início</button></div>`);return}
   if(win){
     const mh=D().hearts,st=L.pat?(hearts===mh?3:hearts>=mh/2?2:1):time>L.dur*.3?3:time>L.dur*.12?2:1;
@@ -563,6 +652,7 @@ function end(win,why){
   }
 }
 function final(){
+  SFX.play('final');
   show(`<h2>Você foi o escalonador</h2>
   <p>Tudo o que você fez com o dedo, o sistema operacional faz sozinho:</p>
   <ul><li>Coloca threads da fila em núcleos livres.</li><li>Tira do núcleo quem para para esperar dados.</li><li>Reveza as tarefas longas em fatias de tempo, para nada travar.</li><li>Prefere núcleos vazios e tenta devolver cada thread ao núcleo de antes, por causa do cache.</li></ul>
@@ -578,14 +668,25 @@ function menu(){
   <div class="difs" role="radiogroup" aria-label="Dificuldade">${Object.entries(DIFS).map(([k,d])=>`<button class="dif" role="radio" aria-checked="${k===dif}" data-dif="${k}"><b>${d.nome}</b><span>${d.desc}</span></button>`).join('')}</div>
   <p class="hint2">Dá para trocar sempre que voltar ao início.</p>
   ${mapHtml()}
-  <div class="cardbtns"><button class="btn big" data-go="first">Começar</button>${results.some(Boolean)?'<button class="btn ghost" data-go="final">Pular para o final</button>':''}</div>`);
+  <div class="cardbtns"><button class="btn big" data-go="first">Começar</button>${results.some(Boolean)?'<button class="btn ghost" data-go="final">Pular para o final</button>':''}<button class="btn ghost" data-go="som" data-som></button></div>`);
+  syncSom();
+}
+// botões de som: o do jogo mostra só o ícone, o do menu mostra também o texto
+function syncSom(){
+  document.querySelectorAll('[data-som]').forEach(b=>{
+    b.textContent=b.id==='som'?(SFX.on?'🔊':'🔇'):(SFX.on?'🔊 Som ligado':'🔇 Som desligado');
+    b.setAttribute('aria-label',SFX.on?'Som ligado. Toque para desligar':'Som desligado. Toque para ligar');
+    b.setAttribute('aria-pressed',SFX.on);
+  });
 }
 $('card').addEventListener('click',e=>{
   const dv=e.target.closest('[data-dif]');
-  if(dv){dif=dv.dataset.dif;try{localStorage.setItem('esc-dif',dif)}catch(err){}
+  if(dv){dif=dv.dataset.dif;try{localStorage.setItem('esc-dif',dif)}catch(err){}SFX.play('select');
     document.querySelectorAll('[data-dif]').forEach(b=>b.setAttribute('aria-checked',b.dataset.dif===dif));return}
   const g=e.target.closest('[data-go]');if(!g)return;
   const a=g.dataset.go;
+  if(a==='som'){SFX.toggle();syncSom();return}
+  if(a!=='final')SFX.play('click');
   if(a==='first')intro(0);
   else if(a==='play'){auto=false;start(li)}
   else if(a==='next')intro(li+1);
@@ -595,8 +696,10 @@ $('card').addEventListener('click',e=>{
   else if(a==='menu')menu();
   else if(a==='auto'){auto=true;start(3)}
 });
-$('pause').onclick=()=>{if(!running)return;paused=!paused;$('pause').textContent=paused?'Continuar':'Pausar';setMsg(paused?'Jogo pausado.':'De volta ao jogo!')};
-$('restart').onclick=()=>{if(L){auto=false;start(li)}};
+$('pause').onclick=()=>{if(!running)return;paused=!paused;SFX.play(paused?'pause':'resume');$('pause').textContent=paused?'Continuar':'Pausar';setMsg(paused?'Jogo pausado.':'De volta ao jogo!')};
+$('restart').onclick=()=>{if(L){auto=false;SFX.play('click');start(li)}};
+$('som').onclick=()=>{SFX.toggle();syncSom()};
+syncSom();
 
 L=LEVELS[0];threads=[];slots=[];for(let c=0;c<4;c++)slots.push({c,s:0,t:null,since:0});buildCores();draw();
 menu();
