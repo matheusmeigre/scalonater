@@ -655,17 +655,22 @@ const CPU_LOGO='<svg viewBox="0 0 72 72" fill="none" aria-hidden="true"><path d=
    Tudo sintetizado com Web Audio, sem arquivos. O navegador só libera o áudio
    depois de um toque ou tecla, por isso unlock() roda no primeiro gesto. */
 const SFX=(()=>{
-  let ctx=null,out=null,noiseBuf=null,on=true;const lastAt={};
+  let ctx=null,out=null,noiseBuf=null,on=true,primed=false;const lastAt={};
   try{on=localStorage.getItem('esc-som')!=='0'}catch(e){}
+  // Celulares só liberam o áudio dentro de um gesto (no iPhone, toque solto ou clique; pointerdown não vale),
+  // então unlock() roda em vários eventos até o áudio estar de fato tocando.
   function unlock(){
     if(!on)return;
+    // iOS: trata como "reprodução de mídia", que toca mesmo com o botão de silêncio ligado
+    try{if(navigator.audioSession)navigator.audioSession.type='playback'}catch(e){}
     if(!ctx){
       const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;
       ctx=new AC();out=ctx.createGain();out.gain.value=.55;out.connect(ctx.destination);
       noiseBuf=ctx.createBuffer(1,ctx.sampleRate*.5,ctx.sampleRate);
       const d=noiseBuf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
     }
-    if(ctx.state==='suspended')ctx.resume();
+    if(ctx.state!=='running'&&ctx.resume)ctx.resume().catch(()=>{});
+    if(!primed){primed=true;try{const b=ctx.createBufferSource();b.buffer=ctx.createBuffer(1,1,22050);b.connect(ctx.destination);b.start(0)}catch(e){}}
   }
   // nota com ataque curto e queda exponencial; slide = frequência final
   function tone(f,dur,{type='sine',vol=.2,at=0,slide=0}={}){
@@ -721,13 +726,14 @@ const SFX=(()=>{
     toggle(){on=!on;try{localStorage.setItem('esc-som',on?'1':'0')}catch(e){}if(on){unlock();S.select()}return on},
     play(n){
       if(!on||!ctx||!S[n])return;
+      if(ctx.state!=='running'){ctx.resume&&ctx.resume().catch(()=>{});return} // ainda bloqueado pelo navegador: tenta liberar no próximo gesto
       const now=ctx.currentTime;if(lastAt[n]&&now-lastAt[n]<.05)return; // evita empilhar o mesmo som no mesmo instante
       lastAt[n]=now;try{S[n]()}catch(e){}
     }
   };
 })();
-addEventListener('pointerdown',SFX.unlock,true);
-addEventListener('keydown',SFX.unlock,true);
+['pointerdown','pointerup','touchstart','touchend','click','keydown'].forEach(ev=>addEventListener(ev,SFX.unlock,true));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)SFX.unlock()});
 const PROG={
   jogo:{nome:'Jogo',ic:svg(P.jogo),cor:'var(--jogo)',tipos:['principal','física','áudio']},
   nav:{nome:'Navegador',ic:svg(P.nav),cor:'var(--nav)',tipos:['aba','vídeo','download']},
