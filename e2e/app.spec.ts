@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import {
+  CORES_PHASES,
   expectInsideViewportWidth,
   expectNoHorizontalScroll,
   expectTouchTargets,
@@ -47,7 +48,7 @@ test.describe('jornada do Núcleos', () => {
     await expectTouchTargets(page)
 
     // tutorial: sem derrota, só tocando
-    await startPhase(page, 'tutorial')
+    await startPhase(page, 'cores', 'tutorial')
     await expectNoHorizontalScroll(page)
     await expectInsideViewportWidth(page, '[data-slot]')
     await expectTouchTargets(page)
@@ -63,7 +64,9 @@ test.describe('jornada do Núcleos', () => {
 
     // card de conceito abre no modal
     await page.getByRole('button', { name: 'Ver card' }).click()
-    await expect(page.getByRole('dialog').getByRole('heading', { name: 'Escalonador' })).toBeVisible()
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: 'Escalonador' }),
+    ).toBeVisible()
     await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click()
 
     // progresso persiste depois de recarregar
@@ -77,8 +80,8 @@ test.describe('jornada do Núcleos', () => {
   })
 
   test('fase com espera de dados cabe na tela e pausa', async ({ page }) => {
-    await seedProgress(page, 1)
-    await startPhase(page, 'io-wait', 1)
+    await seedProgress(page, 'cores', CORES_PHASES, 1)
+    await startPhase(page, 'cores', 'io-wait', 1)
     await page.locator('[data-slot][data-filled="false"]').first().click()
     await expect(page.locator('[data-slot][data-filled="true"]')).toHaveCount(1)
     await expectNoHorizontalScroll(page)
@@ -92,25 +95,30 @@ test.describe('jornada do Núcleos', () => {
   })
 
   test('fase SMT (2 espaços por núcleo) não corta nada', async ({ page }) => {
-    await seedProgress(page, 3)
-    await startPhase(page, 'smt-cache', 1)
+    await seedProgress(page, 'cores', CORES_PHASES, 3)
+    await startPhase(page, 'cores', 'smt-cache', 1)
     await expect(page.locator('[data-slot]')).toHaveCount(8)
-    for (let i = 0; i < 3; i++) await page.locator('[data-slot][data-filled="false"]').first().click()
+    for (let i = 0; i < 3; i++)
+      await page.locator('[data-slot][data-filled="false"]').first().click()
     await expectNoHorizontalScroll(page)
     await expectInsideViewportWidth(page, '[data-slot], [data-zone]')
     await expectTouchTargets(page)
     // a lista de núcleos não passa da altura do próprio processador
     const overflow = await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>('[data-core]')].some((c) => c.scrollHeight > c.clientHeight + 1),
+      [...document.querySelectorAll<HTMLElement>('[data-core]')].some(
+        (c) => c.scrollHeight > c.clientHeight + 1,
+      ),
     )
     expect(overflow).toBe(false)
   })
 
   test('perder mostra dica e permite tentar sem tempo', async ({ page }) => {
-    await seedProgress(page, 1)
-    await startPhase(page, 'io-wait', 20)
+    await seedProgress(page, 'cores', CORES_PHASES, 1)
+    await startPhase(page, 'cores', 'io-wait', 20)
     // não joga: o tempo acaba
-    await expect(page.getByRole('heading', { name: 'Tempo esgotado' })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: 'Tempo esgotado' })).toBeVisible({
+      timeout: 30_000,
+    })
     await expect(page.getByText('Dica do Kernel')).toBeVisible()
     await page.getByRole('button', { name: 'Jogar sem tempo' }).click()
     await expect(page.getByText('Livre', { exact: true }).first()).toBeVisible()
@@ -119,8 +127,8 @@ test.describe('jornada do Núcleos', () => {
 
 test.describe('teclado e arraste', () => {
   test('dá para jogar só com o teclado', async ({ page }) => {
-    await seedProgress(page, 1)
-    await startPhase(page, 'tutorial', 1)
+    await seedProgress(page, 'cores', CORES_PHASES, 1)
+    await startPhase(page, 'cores', 'tutorial', 1)
     await page.locator('[data-thread]').first().focus()
     await page.keyboard.press('Enter')
     await expect(page.locator('[data-thread][aria-pressed="true"]')).toHaveCount(1)
@@ -131,8 +139,8 @@ test.describe('teclado e arraste', () => {
 
   test('arrastar uma thread da fila até um núcleo', async ({ page, isMobile }) => {
     test.skip(isMobile, 'arraste com mouse só no desktop; no toque o caminho é tocar e tocar')
-    await seedProgress(page, 1)
-    await startPhase(page, 'tutorial', 1)
+    await seedProgress(page, 'cores', CORES_PHASES, 1)
+    await startPhase(page, 'cores', 'tutorial', 1)
     const thread = page.locator('[data-thread]').first()
     const slot = page.locator('[data-slot="3"]')
     const a = (await thread.boundingBox())!
@@ -147,7 +155,12 @@ test.describe('teclado e arraste', () => {
 })
 
 test.describe('PWA', () => {
-  test('funciona offline depois do primeiro acesso', async ({ page, context, browserName, isMobile }) => {
+  test('funciona offline depois do primeiro acesso', async ({
+    page,
+    context,
+    browserName,
+    isMobile,
+  }) => {
     test.skip(browserName !== 'chromium' || isMobile, 'service worker testado no Chromium desktop')
     await page.goto('/')
     await page.evaluate(async () => {
