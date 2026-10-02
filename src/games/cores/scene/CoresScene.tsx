@@ -12,7 +12,12 @@ import { useStore } from 'zustand'
 import { SHELL } from '@/content/shell'
 import { audio } from '@/engine/audio/audioEngine'
 import type { PhaseOutcome, SceneProps } from '@/engine/types'
-import { buildDndAnnouncements, liftAboveFinger, magnetCollision, useDragClickGuard } from '@/ui/dnd'
+import {
+  buildDndAnnouncements,
+  liftAboveFinger,
+  magnetCollision,
+  useDragClickGuard,
+} from '@/ui/dnd'
 import { GameFrame } from '@/ui/GameFrame'
 import { HeartsInline, LevelBadge, LivesStat, ScoreStat, TasksStat, TimeStat } from '@/ui/Hud'
 import { Icon } from '@/ui/icons'
@@ -258,11 +263,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
                   </DifficultyPill>
                 )}
                 {config.patience && (
-                  <HeartsInline
-                    hearts={game.hearts}
-                    max={config.hearts}
-                    className="roomy:hidden"
-                  />
+                  <HeartsInline hearts={game.hearts} max={config.hearts} className="roomy:hidden" />
                 )}
                 <span className="hidden side:inline">
                   {fill(config.slotsPerCore > 1 ? UI.cpuInfoSmt : UI.cpuInfo, {

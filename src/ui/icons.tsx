@@ -184,8 +184,7 @@ export function registerIcons(icons: Record<string, { node: ReactNode; filled?: 
 /** Nomes embutidos (com autocomplete) mais quaisquer outros registrados em tempo de execução. */
 export type IconName = keyof typeof STROKE | keyof typeof FILLED | (string & {})
 
-export const isIconName = (n: string): n is IconName =>
-  n in STROKE || n in FILLED || n in EXTRA
+export const isIconName = (n: string): n is IconName => n in STROKE || n in FILLED || n in EXTRA
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName

@@ -1,0 +1,53 @@
+/* Layout minimo de exemplo. Troque pelo grid que seu jogo precisa — o
+   único contrato é nomear as áreas "level", "stats" e "ctrl" (GameFrame) e
+   "nar" (narrador); o resto ("field" aqui) é todo seu. */
+.template-layout {
+  display: grid;
+  width: 100%;
+  max-width: 900px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) {
+  .template-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+.template-field {
+  grid-area: field;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: center;
+}
+@media (min-width: 540px) {
+  .template-field {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.template-target {
+  min-height: 56px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+}
+.template-target[aria-pressed='true'] {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}

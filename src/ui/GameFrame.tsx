@@ -64,11 +64,7 @@ export function GameFrame({
   const toggleMute = useSettings((s) => s.toggle)
 
   return (
-    <div
-      className={cx(layoutClassName, 'safe-pt safe-px safe-pb')}
-      data-game-active
-      {...rootProps}
-    >
+    <div className={cx(layoutClassName, 'safe-pt safe-px safe-pb')} data-game-active {...rootProps}>
       <Panel className="flex min-w-0 items-center gap-2.5 rounded-[12px] py-[5px] pr-2.5 pl-[5px] [grid-area:level] roomy:gap-3.5 roomy:rounded-lg roomy:py-2 roomy:pr-5 roomy:pl-3">
         {level}
       </Panel>
