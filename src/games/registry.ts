@@ -8,7 +8,12 @@ import { registerIcons } from '@/ui/icons'
  * `GameModule` (nomeado ou `default`) — nada aqui precisa mudar. Pastas que
  * começam com `_` (como `_template`) são ignoradas.
  */
-const modules = import.meta.glob<Record<string, unknown>>('./*/index.ts', { eager: true })
+// O padrão negativo evita que "_template" (e qualquer outra pasta "_algo")
+// entre no bundle: sem ele, o glob ainda a descobriria e só a descartaríamos
+// depois, em tempo de execução.
+const modules = import.meta.glob<Record<string, unknown>>(['./*/index.ts', '!./_*/index.ts'], {
+  eager: true,
+})
 
 function isGameModule(v: unknown): v is GameModule {
   if (!v || typeof v !== 'object') return false
