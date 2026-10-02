@@ -15,13 +15,10 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from 'zustand'
 import { SHELL } from '@/content/shell'
 import { audio } from '@/engine/audio/audioEngine'
-import { useSettings } from '@/engine/store/settingsStore'
 import type { PhaseOutcome, SceneProps } from '@/engine/types'
-import { buttonClass } from '@/ui/Button'
+import { GameFrame } from '@/ui/GameFrame'
 import { HeartsInline, LevelBadge, LivesStat, ScoreStat, TasksStat, TimeStat } from '@/ui/Hud'
 import { Icon } from '@/ui/icons'
-import { Narrator } from '@/ui/Narrator'
-import { Panel } from '@/ui/Panel'
 import { DifficultyPill } from '@/ui/Pill'
 import { cx, fill } from '@/ui/format'
 import { APPS_COPY, COPY, UI } from '../content'
@@ -147,8 +144,6 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
   const narration = useStore(store, (s) => s.narration)
   const dragging = useStore(store, (s) => s.dragging)
   const tutorialStep = useStore(store, (s) => s.tutorialStep)
-  const muted = useSettings((s) => s.muted)
-  const toggleMute = useSettings((s) => s.toggle)
 
   const copy = COPY.phases[phase.id]!
   const levelNumber = PHASES.filter((p) => p.kind === 'level').indexOf(phase) + 1
@@ -264,9 +259,6 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
     }
   }, [store])
 
-  const controlBtn =
-    'roomy:h-[60px] roomy:min-w-[60px] roomy:rounded-lg roomy:px-6 roomy:text-[17px] roomy:[--d:6px] roomy:[&_svg]:size-6'
-
   return (
     <DndContext
       sensors={sensors}
@@ -280,94 +272,72 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
         screenReaderInstructions: { draggable: UI.dnd.instructions },
       }}
     >
-      <div className="cores-layout safe-pt safe-px safe-pb" data-io={config.io} data-game-active>
-        {/* fase */}
-        <Panel className="flex min-w-0 items-center gap-2.5 rounded-[12px] py-[5px] pr-2.5 pl-[5px] [grid-area:level] roomy:gap-3.5 roomy:rounded-lg roomy:py-2 roomy:pr-5 roomy:pl-3">
-          {autoplay ? (
-            <LevelBadge kicker={SHELL.hud.mode} value={SHELL.hud.auto} />
-          ) : phase.kind === 'tutorial' ? (
-            <LevelBadge
-              kicker={SHELL.hud.mode}
-              value={<Icon name="book" className="size-5 roomy:size-8" />}
-            />
-          ) : (
-            <LevelBadge kicker={SHELL.hud.phase} value={String(levelNumber)} />
-          )}
-          <div className="min-w-0">
-            <h2 className="m-0 truncate text-[15px] tracking-[0.5px] roomy:text-[22px]">
-              {copy.title}
-            </h2>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted roomy:mt-1 roomy:text-sm">
-              {phase.kind === 'tutorial' ? (
-                <DifficultyPill difficulty="easy">{SHELL.hud.tutorial}</DifficultyPill>
-              ) : (
-                <DifficultyPill difficulty={difficulty}>
-                  {SHELL.difficulty[difficulty].name}
-                </DifficultyPill>
-              )}
-              {config.patience && (
-                <HeartsInline hearts={game.hearts} max={config.hearts} className="roomy:hidden" />
-              )}
-              <span className="hidden side:inline">
-                {fill(config.slotsPerCore > 1 ? UI.cpuInfoSmt : UI.cpuInfo, {
-                  cores: config.cores,
-                })}
-              </span>
+      <GameFrame
+        layoutClassName="cores-layout"
+        rootProps={{ 'data-io': config.io }}
+        paused={paused}
+        onPauseChange={onPauseChange}
+        onRestart={onRestart}
+        narration={narration}
+        speakerRole={UI.speakerRole}
+        level={
+          <>
+            {autoplay ? (
+              <LevelBadge kicker={SHELL.hud.mode} value={SHELL.hud.auto} />
+            ) : phase.kind === 'tutorial' ? (
+              <LevelBadge
+                kicker={SHELL.hud.mode}
+                value={<Icon name="book" className="size-5 roomy:size-8" />}
+              />
+            ) : (
+              <LevelBadge kicker={SHELL.hud.phase} value={String(levelNumber)} />
+            )}
+            <div className="min-w-0">
+              <h2 className="m-0 truncate text-[15px] tracking-[0.5px] roomy:text-[22px]">
+                {copy.title}
+              </h2>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted roomy:mt-1 roomy:text-sm">
+                {phase.kind === 'tutorial' ? (
+                  <DifficultyPill difficulty="easy">{SHELL.hud.tutorial}</DifficultyPill>
+                ) : (
+                  <DifficultyPill difficulty={difficulty}>
+                    {SHELL.difficulty[difficulty].name}
+                  </DifficultyPill>
+                )}
+                {config.patience && (
+                  <HeartsInline
+                    hearts={game.hearts}
+                    max={config.hearts}
+                    className="roomy:hidden"
+                  />
+                )}
+                <span className="hidden side:inline">
+                  {fill(config.slotsPerCore > 1 ? UI.cpuInfoSmt : UI.cpuInfo, {
+                    cores: config.cores,
+                  })}
+                </span>
+              </div>
             </div>
+          </>
+        }
+        hud={
+          <div
+            className={cx(
+              'grid min-w-0 gap-1.5 roomy:gap-3.5',
+              config.patience ? 'grid-cols-3 roomy:grid-cols-4' : 'grid-cols-3',
+              'side:grid-cols-[1fr_1fr_minmax(0,230px)_auto]',
+            )}
+            data-highlight={highlight === 'hud'}
+          >
+            <TimeStat remaining={game.timeLeft} total={config.duration} untimed={!config.timed} />
+            <TasksStat done={game.done} goal={config.goal} />
+            <ScoreStat score={game.scoring.score} combo={game.scoring.combo} />
+            {config.patience && (
+              <LivesStat hearts={game.hearts} max={config.hearts} className="compact:hidden" />
+            )}
           </div>
-        </Panel>
-
-        {/* HUD */}
-        <div
-          className={cx(
-            'grid min-w-0 gap-1.5 [grid-area:stats] roomy:gap-3.5',
-            config.patience ? 'grid-cols-3 roomy:grid-cols-4' : 'grid-cols-3',
-            'side:grid-cols-[1fr_1fr_minmax(0,230px)_auto]',
-          )}
-          data-highlight={highlight === 'hud'}
-        >
-          <TimeStat remaining={game.timeLeft} total={config.duration} untimed={!config.timed} />
-          <TasksStat done={game.done} goal={config.goal} />
-          <ScoreStat score={game.scoring.score} combo={game.scoring.combo} />
-          {config.patience && (
-            <LivesStat hearts={game.hearts} max={config.hearts} className="compact:hidden" />
-          )}
-        </div>
-
-        {/* controles */}
-        <div className="flex items-center justify-end gap-2 [grid-area:ctrl] roomy:gap-3">
-          <button
-            type="button"
-            className={buttonClass('ghost', 'sm', controlBtn)}
-            aria-label={muted ? SHELL.a11y.muteOn : SHELL.a11y.muteOff}
-            aria-pressed={muted}
-            onClick={() => toggleMute('muted')}
-          >
-            <Icon name={muted ? 'sound-off' : 'sound-on'} />
-          </button>
-          <button
-            type="button"
-            className={buttonClass('cyan', 'sm', controlBtn)}
-            aria-label={SHELL.a11y.pause}
-            onClick={() => onPauseChange(!paused)}
-          >
-            <Icon name="pause" />
-            <span className="hidden side:inline">{SHELL.controls.pause}</span>
-          </button>
-          <button
-            type="button"
-            className={buttonClass('orange', 'sm', controlBtn)}
-            aria-label={SHELL.a11y.restart}
-            onClick={() => {
-              audio.play('click')
-              onRestart()
-            }}
-          >
-            <Icon name="restart" />
-            <span className="hidden side:inline">{SHELL.controls.restart}</span>
-          </button>
-        </div>
-
+        }
+      >
         <Processor
           cores={cores}
           smt={config.slotsPerCore > 1}
@@ -390,15 +360,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
         />
 
         {config.io && <IoZone threads={ioViews} dragging={dragging} />}
-
-        <Narrator
-          className="[grid-area:nar]"
-          message={narration.text}
-          mood={narration.mood}
-          speaker={SHELL.opening.speaker}
-          role={UI.speakerRole}
-        />
-      </div>
+      </GameFrame>
 
       <DragOverlay dropAnimation={null} modifiers={[liftAboveFinger]}>
         {ghost && (
