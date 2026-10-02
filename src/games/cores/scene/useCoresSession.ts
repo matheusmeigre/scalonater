@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createStore, useStore } from 'zustand'
 import { audio, type SfxName } from '@/engine/audio/audioEngine'
 import { useGameLoop } from '@/engine/loop/useGameLoop'
+import { maybeRevertNarration, say as sayNarration } from '@/engine/narration/useNarration'
 import { randomSeed } from '@/engine/random'
+import { advanceTutorialStep } from '@/engine/tutorial/useTutorialSteps'
 import type { DifficultyId } from '@/engine/types'
 import { announce } from '@/ui/Announcer'
 import type { KernelMood } from '@/ui/Kernel'
@@ -149,8 +151,9 @@ export function useCoresSession(o: SessionOptions) {
       let tutorialStep = prev.tutorialStep
       let revertAt = prev.revertAt
       const say = (text: string, mood: KernelMood = 'neutral') => {
-        narration = { text, mood }
-        revertAt = steps.length ? next.elapsed + TRANSIENT_SECONDS : null
+        const s = sayNarration(text, mood, next.elapsed, steps.length > 0, TRANSIENT_SECONDS)
+        narration = s.narration
+        revertAt = s.revertAt
       }
 
       for (const e of next.events) {
@@ -159,9 +162,9 @@ export function useCoresSession(o: SessionOptions) {
 
         const trig = triggerFor(e)
         if (trig && tutorialStep < steps.length) {
-          const j = steps.findIndex((s, k) => k >= tutorialStep && s.advanceOn === trig)
-          if (j !== -1) {
-            tutorialStep = j + 1
+          const advanced = advanceTutorialStep(steps, tutorialStep, trig)
+          if (advanced !== tutorialStep) {
+            tutorialStep = advanced
             const text = stepText(tutorialStep)
             if (text) {
               narration = { text, mood: 'happy' }
@@ -213,11 +216,13 @@ export function useCoresSession(o: SessionOptions) {
       }
 
       // No tutorial, falas passageiras voltam para a instrução da etapa.
-      if (revertAt !== null && next.elapsed >= revertAt) {
-        const text = stepText(tutorialStep)
-        if (text) narration = { text, mood: 'neutral' }
-        revertAt = null
-      }
+      const reverted = maybeRevertNarration(
+        { narration, revertAt },
+        next.elapsed,
+        stepText(tutorialStep),
+      )
+      narration = reverted.narration
+      revertAt = reverted.revertAt
 
       store.setState({ game: next, narration, tutorialStep, revertAt })
     },
