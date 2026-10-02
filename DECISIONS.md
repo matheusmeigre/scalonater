@@ -134,9 +134,75 @@ revistas a qualquer momento.
 - `?speed=N` (até 20) acelera uma fase. Existe para os testes e2e. Fica disponível no build de
   produção porque é inofensivo e ajuda a revisar fases.
 
+## Etapa 0.5 — Base compartilhada v2
+
+Infraestrutura para as estações 1–7, 9 e 10 construírem em paralelo sem conflito de arquivo
+(`docs/PLANEJAMENTO.md`, seção 3, Onda 1). Não é um jogo novo: o Núcleos continua igual, com
+todos os testes de antes passando sobre a base nova.
+
+### Combinada antes de começar
+
+- **Lançamento controlado (combinado, diferente da recomendação do planejamento):** a estação
+  fica disponível em produção **imediatamente ao ser mergeada na master**, sem gate de "em
+  construção" por padrão. Ainda assim, o campo `meta.released` existe no `GameModule` e é
+  respeitado por `GAMES`/`stationStatus`/mapa/Manual, para poder ser usado estação por estação
+  no futuro se o dono do projeto decidir. O Núcleos está com `released: true`; não há nenhuma
+  lógica de bloqueio além do que esse campo já expressa.
+
+### Suposições
+
+- **Registro automático:** `games/registry.ts` descobre módulos com
+  `import.meta.glob('./*/index.ts', { eager: true })`, aceitando o `GameModule` como export
+  `default` **ou** nomeado (o Núcleos exporta os dois, para não quebrar quem já importava
+  `coresGame`). Pastas que começam com `_` (como `_template`) são ignoradas. `ALL_GAMES` lista
+  todo módulo descoberto (usado pelos testes de contrato); `GAMES`/`GAMES_BY_ID` filtram pelos
+  liberados nesta build.
+- **`VITE_SHOW_UNRELEASED`:** além da variável de ambiente, `npm run dev` (`import.meta.env.DEV`)
+  também mostra tudo liberado, como pedido no planejamento.
+- **`GameFrame` não impõe o grid do campo de jogo:** ela só desenha o painel de fase, o HUD, os
+  três controles padrão (mudo/pausar/recomeçar) e o narrador, posicionados pelas áreas `level`,
+  `stats`, `ctrl` e `nar` que o CSS de cada jogo já declara. O campo (`children`) é passado
+  adiante como está — cada jogo mantém o próprio grid e as próprias áreas ali dentro (no
+  Núcleos, `cpu`/`queue`/`io`, inalteradas em `cores.css`). Isso deixou a migração do Núcleos
+  seguro (zero mudança visual) e ainda generaliza a parte que se repete.
+- **Tutorial e narração só extraídos como funções puras**, não como os hooks React completos
+  descritos no item (`useTutorialSteps`/`useNarration` existem e têm hook de conveniência, mas
+  o Núcleos continua guardando o próprio estado numa store Zustand por causa do game loop a
+  60fps; ele importa `advanceTutorialStep`/`say`/`maybeRevertNarration` em vez de reimplementar
+  a lógica). Um jogo novo sem essa necessidade pode usar os hooks diretamente.
+- **Kit `src/ui/dnd`:** generalizado a partir do Núcleos (`magnetCollision`, `liftAboveFinger`,
+  `useDragClickGuard`, `buildDndAnnouncements`), que passou a usá-lo no lugar do código inline
+  equivalente. `DragButton`/`DropTarget` (componentes acessíveis "tocar ou arrastar") foram
+  criados para as próximas estações, mas o Núcleos não foi migrado para eles: suas peças
+  (`ThreadCard`/`Processor`/`Zones`) têm estilo e `data-*` muito específicos, e trocá-los agora
+  seria risco sem ganho (ele já cumpre o padrão com `useDraggable`/`useDroppable` direto).
+- **Extensões por jogo (`icons`/`sfx`):** implementadas como registro em tempo de execução
+  (`registerIcons`/`registerSfx`), carregado pelo `registry.ts` ao descobrir cada módulo. Os
+  tipos `IconName`/`SfxName` continuam com autocomplete dos nomes embutidos e aceitam qualquer
+  outra string (`string & {}`), então um nome de ícone/efeito de um jogo futuro não precisa
+  mudar nenhum tipo compartilhado.
+- **Testes de contrato (`src/games/contract.test.ts`)** rodam sobre `ALL_GAMES` (liberados ou
+  não), para uma estação em construção ser cobrada do mesmo jeito antes de virar
+  `released: true`.
+- **e2e genérico:** `seedProgress`/`startPhase` passam a receber o id do jogo (antes eram só do
+  Núcleos). `e2e/layout.spec.ts` descobre jogos e fases em tempo de execução por
+  `window.__SCALONATER_GAMES__` — um pequeno global exposto só com id do jogo e ids de fase
+  (nada que a página já não mostre), lido pelo `registry.ts` na carga. Isso evita manter uma
+  lista de jogos/fases escrita à mão no arquivo de teste. Os testes de layout de uma fase
+  específica rodam como `test.step` dentro de um único teste por viewport, não um teste por
+  fase: mais simples de escrever de forma genérica, ao custo de um relatório menos granular.
+- **CI (`.github/workflows/ci.yml`):** criado e validado como YAML, mas **não testado em
+  execução real** (exigiria o repositório no GitHub Actions, fora do alcance desta sessão).
+  Roda em todo push de branch `etapa-*` e em PRs para a `master`: tipos, lint + format:check,
+  testes de unidade, build e e2e em 4 shards.
+- **Deploy (pendência herdada da Etapa 0):** o `vercel login` continua pendente; não foi
+  possível configurar os previews por branch nesta sessão (depende de acesso externo).
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
   verificar no preview.
 - A música foi escolhida pela descrição e por análise automática do áudio. Vale ouvir antes de
   publicar em produção.
+- CI (`.github/workflows/ci.yml`) nunca rodou de verdade; revisar no primeiro push/PR real.
+- `vercel login` e os previews por branch (`VITE_SHOW_UNRELEASED=1`) continuam pendentes.

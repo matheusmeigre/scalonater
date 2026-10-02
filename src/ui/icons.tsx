@@ -1,4 +1,4 @@
-import type { SVGProps } from 'react'
+import type { ReactNode, SVGProps } from 'react'
 
 /** Ícones de traço (24px, 2.2px, pontas arredondadas). Preenchidos só os da lista FILLED. */
 const STROKE = {
@@ -168,9 +168,23 @@ const FILLED = {
   play: <path d="M6 3.5v17a1 1 0 0 0 1.5.9l14-8.5a1 1 0 0 0 0-1.8l-14-8.5A1 1 0 0 0 6 3.5z" />,
 } as const
 
-export type IconName = keyof typeof STROKE | keyof typeof FILLED
+/**
+ * Ícones extras registrados por jogos (`GameModule.icons`), carregados no
+ * registro (`games/registry.ts`). Cada jogo cuida dos próprios nomes; evite
+ * colidir com os ícones embutidos acima.
+ */
+const EXTRA: Record<string, { node: ReactNode; filled: boolean }> = {}
 
-export const isIconName = (n: string): n is IconName => n in STROKE || n in FILLED
+export function registerIcons(icons: Record<string, { node: ReactNode; filled?: boolean }>) {
+  for (const [name, { node, filled = false }] of Object.entries(icons)) {
+    EXTRA[name] = { node, filled }
+  }
+}
+
+/** Nomes embutidos (com autocomplete) mais quaisquer outros registrados em tempo de execução. */
+export type IconName = keyof typeof STROKE | keyof typeof FILLED | (string & {})
+
+export const isIconName = (n: string): n is IconName => n in STROKE || n in FILLED || n in EXTRA
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
   name: IconName
@@ -179,8 +193,14 @@ export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'name'> {
 }
 
 export function Icon({ name, label, className, ...rest }: IconProps) {
-  const filled = name in FILLED
+  const extra = EXTRA[name as string]
+  const filled = extra ? extra.filled : name in FILLED
   const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true as const }
+  const content = extra
+    ? extra.node
+    : filled
+      ? FILLED[name as keyof typeof FILLED]
+      : STROKE[name as keyof typeof STROKE]
   return (
     <svg
       viewBox="0 0 24 24"
@@ -194,7 +214,7 @@ export function Icon({ name, label, className, ...rest }: IconProps) {
       {...a11y}
       {...rest}
     >
-      {filled ? FILLED[name as keyof typeof FILLED] : STROKE[name as keyof typeof STROKE]}
+      {content}
     </svg>
   )
 }

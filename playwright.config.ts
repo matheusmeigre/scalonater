@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 4173
+// Cada worktree sobe o próprio preview numa porta diferente (ver
+// docs/PLANEJAMENTO.md, seção 6): PORT=4301 npm run test:e2e.
+const PORT = Number(process.env.PORT) || 4173
 
 export default defineConfig({
   testDir: './e2e',

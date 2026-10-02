@@ -89,4 +89,16 @@ export const SFX_RECIPES = {
   },
 } satisfies Record<string, (s: Synth) => void>
 
-export type SfxName = keyof typeof SFX_RECIPES
+/** Receitas extras registradas por jogos (`GameModule.sfx`), ver `audioEngine.registerSfx`. */
+const EXTRA_RECIPES: Record<string, (s: Synth) => void> = {}
+
+export function registerSfx(recipes: Record<string, (s: Synth) => void>) {
+  Object.assign(EXTRA_RECIPES, recipes)
+}
+
+export function recipeFor(name: string): ((s: Synth) => void) | undefined {
+  return (SFX_RECIPES as Record<string, (s: Synth) => void>)[name] ?? EXTRA_RECIPES[name]
+}
+
+/** Nomes embutidos (com autocomplete) mais quaisquer outros registrados em tempo de execução. */
+export type SfxName = keyof typeof SFX_RECIPES | (string & {})

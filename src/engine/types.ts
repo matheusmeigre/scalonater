@@ -1,4 +1,5 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactNode } from 'react'
+import type { Synth } from './audio/sfx'
 import type { StarCount } from './scoring/scoring'
 
 /** Estações da placa-mãe, na ordem da trilha. */
@@ -117,6 +118,13 @@ export interface GameMeta {
   hasDifficulty: boolean
   /** O jogo tem a rodada "ver o sistema jogar sozinho" ao final. */
   hasAutoplay: boolean
+  /**
+   * Em produção, só estações com `released: true` aparecem jogáveis e contam
+   * como pré-requisito. `false` (o padrão para estações novas) as mostra como
+   * "em construção". Em `npm run dev` e com `VITE_SHOW_UNRELEASED=1`, tudo
+   * aparece liberado para revisão. Ver `games/registry.ts`.
+   */
+  released: boolean
 }
 
 export interface GameModule<P extends PhaseBase = PhaseBase> {
@@ -130,6 +138,17 @@ export interface GameModule<P extends PhaseBase = PhaseBase> {
     phase: P,
     o: { difficulty: DifficultyId; untimed: boolean },
   ) => Record<string, number>
+  /**
+   * Ícones próprios do jogo, registrados no mapa global de ícones (ui/icons)
+   * no momento em que o módulo é carregado pelo registro. A chave é o nome
+   * usado em `<Icon name="...">`; evite colidir com os nomes já existentes.
+   */
+  icons?: Record<string, { node: ReactNode; filled?: boolean }>
+  /**
+   * Receitas de efeito sonoro próprias do jogo, registradas no `audio`
+   * (engine/audio) no momento em que o módulo é carregado pelo registro.
+   */
+  sfx?: Record<string, (s: Synth) => void>
 }
 
 /** Apaga o tipo específico da fase para o módulo caber no registro. */
