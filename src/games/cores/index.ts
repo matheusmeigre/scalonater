@@ -6,7 +6,7 @@ import { PHASES } from './phases'
 
 /** Minigame "Núcleos": o jogador é o escalonador do sistema operacional. */
 export const coresGame = defineGame({
-  meta: { id: 'cores', icon: 'cores', hasDifficulty: true, hasAutoplay: true },
+  meta: { id: 'cores', icon: 'cores', hasDifficulty: true, hasAutoplay: true, released: true },
   copy: COPY,
   phases: PHASES,
   cards: CARDS,
@@ -16,3 +16,5 @@ export const coresGame = defineGame({
     return { goal: c.goal, time: c.duration, hearts: c.hearts }
   },
 })
+
+export default coresGame

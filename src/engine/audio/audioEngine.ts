@@ -1,5 +1,5 @@
 import { Howl, Howler } from 'howler'
-import { SFX_RECIPES, type SfxName, type Synth } from './sfx'
+import { recipeFor, registerSfx, type SfxName, type Synth } from './sfx'
 
 export type MusicTrack = 'map' | 'game'
 
@@ -81,11 +81,18 @@ class AudioEngine {
     const last = this.lastAt.get(name)
     if (last !== undefined && now - last < 0.05) return // evita empilhar o mesmo som
     this.lastAt.set(name, now)
+    const recipe = recipeFor(name)
+    if (!recipe) return
     try {
-      SFX_RECIPES[name](this.synth(ctx))
+      recipe(this.synth(ctx))
     } catch {
       /* áudio nunca derruba o jogo */
     }
+  }
+
+  /** Registra receitas de efeito sonoro extras (ver `GameModule.sfx`). */
+  registerSfx(recipes: Record<string, (s: Synth) => void>) {
+    registerSfx(recipes)
   }
 
   /** Pede uma trilha (ou silêncio). Troca com fade. */
