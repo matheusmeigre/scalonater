@@ -2,20 +2,17 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  pointerWithin,
   useSensor,
   useSensors,
-  type Announcements,
-  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
-  type Modifier,
 } from '@dnd-kit/core'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useStore } from 'zustand'
 import { SHELL } from '@/content/shell'
 import { audio } from '@/engine/audio/audioEngine'
 import type { PhaseOutcome, SceneProps } from '@/engine/types'
+import { buildDndAnnouncements, liftAboveFinger, magnetCollision, useDragClickGuard } from '@/ui/dnd'
 import { GameFrame } from '@/ui/GameFrame'
 import { HeartsInline, LevelBadge, LivesStat, ScoreStat, TasksStat, TimeStat } from '@/ui/Hud'
 import { Icon } from '@/ui/icons'
@@ -40,53 +37,7 @@ import { useCoresSession } from './useCoresSession'
 import './cores.css'
 
 /** Ímã: perto do processador, a thread vai para o espaço livre mais próximo do dedo. */
-const MAGNET_PX = 40
-
-const collision: CollisionDetection = (args) => {
-  const hits = pointerWithin(args).filter((c) => c.id !== 'die')
-  if (hits.length) return hits
-  const p = args.pointerCoordinates
-  const die = args.droppableRects.get('die')
-  if (!p || !die) return []
-  if (
-    p.x < die.left - MAGNET_PX ||
-    p.x > die.right + MAGNET_PX ||
-    p.y < die.top - MAGNET_PX ||
-    p.y > die.bottom + MAGNET_PX
-  )
-    return []
-  let best: { id: string | number; d: number } | null = null
-  for (const c of args.droppableContainers) {
-    if (!String(c.id).startsWith('slot:')) continue
-    const r = args.droppableRects.get(c.id)
-    if (!r) continue
-    const dx = Math.max(r.left - p.x, 0, p.x - r.right)
-    const dy = Math.max(r.top - p.y, 0, p.y - r.bottom)
-    const d = Math.hypot(dx, dy)
-    if (!best || d < best.d) best = { id: c.id, d }
-  }
-  return best
-    ? [
-        {
-          id: best.id,
-          data: {
-            droppableContainer: args.droppableContainers.find((c) => c.id === best.id),
-            value: best.d,
-          },
-        },
-      ]
-    : []
-}
-
-/** No toque, a thread arrastada fica acima do dedo para não esconder o destino. */
-const liftAboveFinger: Modifier = ({ transform, activatorEvent, draggingNodeRect }) => {
-  const touch =
-    activatorEvent &&
-    'pointerType' in activatorEvent &&
-    (activatorEvent as PointerEvent).pointerType === 'touch'
-  if (!touch || !draggingNodeRect) return transform
-  return { ...transform, y: transform.y - draggingNodeRect.height * 0.6 - 14 }
-}
+const collision = magnetCollision('die', (id) => id.startsWith('slot:'), 40)
 
 function buildCores(g: CoresState): CoreModel[] {
   return Array.from({ length: g.config.cores }, (_, c) => {
@@ -181,19 +132,18 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
   }, [game, autoplay])
 
   // Clique que chega logo depois de um arraste não conta como toque.
-  const lastDragEnd = useRef(0)
-  const recentlyDragged = () => performance.now() - lastDragEnd.current < 250
+  const { markDragEnd, wasRecentDrag } = useDragClickGuard()
   const onTapSlot = useCallback(
     (i: number) => {
-      if (!recentlyDragged()) actions.tapSlot(i)
+      if (!wasRecentDrag()) actions.tapSlot(i)
     },
-    [actions],
+    [actions, wasRecentDrag],
   )
   const onTapThread = useCallback(
     (id: number) => {
-      if (!recentlyDragged()) actions.select(id)
+      if (!wasRecentDrag()) actions.select(id)
     },
-    [actions],
+    [actions, wasRecentDrag],
   )
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -207,7 +157,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
     audio.play('pick')
   }
   const onDragEnd = (e: DragEndEvent) => {
-    lastDragEnd.current = performance.now()
+    markDragEnd()
     const src = sourceOf(e)
     actions.setDragging(null)
     const target = e.over?.data.current?.target as DropTarget | undefined
@@ -215,7 +165,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
     else audio.play('cancel')
   }
   const onDragCancel = () => {
-    lastDragEnd.current = performance.now()
+    markDragEnd()
     actions.setDragging(null)
   }
 
@@ -234,7 +184,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
     return t ? viewOf(t, config.affinity) : null
   }, [dragging, store, config.affinity])
 
-  const announcements = useMemo<Announcements>(() => {
+  const announcements = useMemo(() => {
     const appName = (data: Record<string, unknown> | undefined) => {
       const src = data?.source as DragSource | undefined
       const g = store.getState().game
@@ -249,14 +199,17 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
         return fill(UI.dnd.targetSlot, { n: (store.getState().game.slots[t.slot]?.core ?? 0) + 1 })
       return t.kind === 'queue' ? UI.dnd.targetQueue : UI.dnd.targetIo
     }
-    return {
-      onDragStart: ({ active }) => fill(UI.dnd.start, { app: appName(active.data.current) }),
-      onDragOver: ({ over }) =>
-        over ? fill(UI.dnd.over, { target: targetName(over.data.current) }) : undefined,
-      onDragEnd: ({ over }) =>
-        over ? fill(UI.dnd.end, { target: targetName(over.data.current) }) : UI.dnd.endNowhere,
-      onDragCancel: () => UI.dnd.cancel,
-    }
+    return buildDndAnnouncements(
+      {
+        start: UI.dnd.start,
+        over: UI.dnd.over,
+        end: UI.dnd.end,
+        endNowhere: UI.dnd.endNowhere,
+        cancel: UI.dnd.cancel,
+      },
+      appName,
+      targetName,
+    )
   }, [store])
 
   return (
@@ -362,7 +315,7 @@ export default function CoresScene(props: SceneProps<CoresPhase>) {
         {config.io && <IoZone threads={ioViews} dragging={dragging} />}
       </GameFrame>
 
-      <DragOverlay dropAnimation={null} modifiers={[liftAboveFinger]}>
+      <DragOverlay dropAnimation={null} modifiers={[liftAboveFinger()]}>
         {ghost && (
           <div className="pointer-events-none h-[60px] w-[84px] roomy:h-[70px] roomy:w-[220px]">
             <ThreadCard view={ghost} showPatience={config.patience} variant="ghost" />

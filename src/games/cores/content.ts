@@ -278,7 +278,7 @@ export const UI = {
     roleDescription: 'thread arrastável',
     instructions:
       'Para mover uma thread, toque nela e depois num núcleo livre. Também dá para arrastar com o dedo ou com o mouse.',
-    start: 'Thread {app} pega.',
+    start: 'Thread {item} pega.',
     over: 'Sobre {target}.',
     end: 'Thread solta em {target}.',
     endNowhere: 'Thread solta fora de um destino.',
