@@ -12,7 +12,7 @@ import {
   type BoardLayout,
 } from '@/games/catalog'
 import { Stars } from '@/ui/Stars'
-import { cx, fill } from '@/ui/format'
+import { cx } from '@/ui/format'
 import { Icon, isIconName } from '@/ui/icons'
 
 export interface StationView {
@@ -182,11 +182,6 @@ export function Board({
             data-station={id}
             data-status={s.status}
             onClick={() => onSelect(id)}
-            aria-label={fill(SHELL.map.stationLabel, {
-              title: copy.title,
-              part: copy.part,
-              status: statusText,
-            })}
             initial={lit ? { scale: 0.8 } : false}
             animate={lit ? { scale: [0.8, 1.12, 1] } : undefined}
             transition={{ duration: 0.8, delay: 0.3 }}
@@ -230,6 +225,7 @@ export function Board({
                 {statusText}
               </span>
             )}
+            <span className="sr-only">{`. ${copy.part}`}</span>
           </motion.button>
         )
       })}

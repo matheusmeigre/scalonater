@@ -45,7 +45,6 @@ export const SHELL = {
       locked: 'Bloqueada',
       soon: 'Em construção',
     },
-    stationLabel: '{title}: {part}. {status}',
     lockedHint: 'Conclua as estações anteriores para liberar esta.',
     soonHint: 'Esta estação ainda está sendo construída. Volte em breve!',
     welcomeTitle: 'Bem-vindo à placa-mãe',
