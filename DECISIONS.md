@@ -520,6 +520,87 @@ Não editei nada fora de `src/games/network/**` e `e2e/network.spec.ts`, mas um 
   exceção" e o teste não semeia esse progresso). Não é algo desta etapa, mas registro porque
   pode pegar quem for revisar as métricas de CI depois que mais estações forem mergeadas.
 
+## Etapa 3 — A calculadora (ULA)
+
+Estação `alu`: o jogador soma binário à mão (coluna a coluna, com o vai-um), depois monta o
+meio-somador e o somador completo reaproveitando `shared/circuit` (criado por Portas lógicas) e
+`shared/binary` (criado por Bits), e por fim usa um seletor para trocar entre soma, AND e OR na
+mesma ULA. Design doc: `docs/design/alu.md`, seguido com algumas extensões documentadas abaixo —
+a ULA **não cria** módulo compartilhado próprio, é consumidora final dos dois módulos citados.
+
+### Suposições
+
+- **`targetTruthTable` generalizado para múltiplas saídas:** o contrato do design doc descreve
+  `targetTruthTable?: readonly boolean[]` (uma saída por linha, igual a `gates`). O meio-somador e
+  o somador completo têm **2** saídas (soma, vai-um), não 1 — troquei por
+  `readonly (readonly boolean[])[]` (uma linha por combinação de entradas, cada linha com os
+  valores esperados de todas as saídas, na ordem em que aparecem no `CircuitTemplate`, alinhada
+  com a ordem de `truthTable` de `shared/circuit`). `checkCircuitPhase`
+  (`src/games/alu/logic/rules.ts`) é a versão generalizada do `checkCircuit` de `gates` para esse
+  formato.
+- **Fase 3 (somador completo) só tem 1 encaixe vazio, não vários:** o design doc descreve a
+  Fase 3 como "encadear 2 meios-somadores (peça 'meio-somador' já pronta, reaproveitada da fase 2,
+  mais 1 porta OR para combinar os dois vai-uns)". Li isso como: os dois meios-somadores já vêm
+  **prontos** (`GateNode`s fixos no `CircuitTemplate`, não `SlotNode`s) e só o OR final fica como
+  encaixe vazio. Isso también atende ao risco do próprio doc ("carga cognitiva alta na Fase 3"): a
+  cena mostra os dois meios-somadores já montados, lado a lado, e o jogador só decide o encaixe
+  que os combina.
+- **XOR, AND, OR e NOT disponíveis como peças prontas nas Fases 2-3** (`CIRCUIT_GATE_CHOICES`),
+  estoque ilimitado — réplica do padrão "fases 1 a 3 sem estoque limitado" de `gates`. O design doc
+  já observa que XOR vem "destravada" aqui (ao contrário de `gates`, onde o jogador monta XOR com
+  AND+OR+NOT).
+- **Tutorial com 2 bits, não 1:** o contrato diz "bitCount: número de bits dos operandos (4 em
+  todas as fases além do tutorial)", sem fixar o do tutorial. Com 1 bit, a segunda conta guiada
+  (1+1) não teria onde mostrar o "10" sem descartar o vai-um como overflow — usei 2 bits só no
+  tutorial para a lição ("vira '10'") ficar visível de verdade, não truncada.
+- **`fixedPairs` (campo extra em `AluPhase`, fora do contrato do design doc):** o tutorial usa duas
+  contas fixas e guiadas (0+1, depois 1+1), não sorteadas — o contrato original só previa
+  `targetCount` (quantidade, não os valores). Mesmo padrão de extensão própria já usado por outras
+  estações (`tutorial?` em Memória/Armazenamento, `totalExecutions`/`data` no Ciclo).
+- **Mecânica da Fase 1 simplificada (coluna inteira, não coluna a coluna com confirmação
+  isolada):** o design doc fala em preencher "coluna a coluna, da direita para a esquerda, vendo o
+  vai-um aparecer". Implementei o vai-um de cada coluna como uma ficha **sempre visível** (calculada
+  automaticamente a partir do gabarito, acima da fileira do resultado) e o jogador marca todas as
+  casas do resultado antes de confirmar a conta inteira de uma vez (`confirmManualAnswer`), em vez
+  de confirmar e travar coluna por coluna. Reduz a interatividade descrita, mas mantém a lição
+  (ver o vai-um aparecer, marcar o resultado certo) sem a complexidade de um fluxo de confirmação
+  por coluna — decisão de escopo para entregar a estação a tempo; `checkColumn` existe e é testado
+  isoladamente para quem quiser estender a interação por coluna depois.
+- **Fase 4: o jogador seleciona a operação pedida, não digita o resultado bit a bit.** O contrato
+  descreve "resolver corretamente 5 desafios que alternam entre pedir soma, AND ou OR" sem detalhar
+  a interação. Implementei como: o Kernel/UI mostra A, B e qual operação foi pedida; o jogador
+  escolhe Soma/AND/OR num seletor (o resultado calculado aparece ao vivo, só como apoio visual) e
+  confirma. A decisão testada é "selecionar a operação certa sem remontar nada" (o ponto didático
+  do design doc), não reconstruir o resultado bit a bit (isso já foi testado nas Fases 1 e 2-3).
+- **Overflow evitado nos desafios sorteados/fixos** (Fases 1 e 4, operação `add`): `drawPair`
+  resorteia até `a + b <= 2^bitCount - 1`; os desafios fixos da Fase 4 foram escolhidos à mão
+  (5+3, 7+8) para nunca passar de 15 em 4 bits. AND/OR nunca têm overflow (operação bit a bit), não
+  precisam do filtro.
+- **Estrelas e tempo:** réplica exata do padrão de `gates`/Núcleos (tempo restante: ≥30% → 3,
+  ≥12% → 2, vitória → 1; no modo sem tempo, por número de trocas de porta nas Fases 2-3). Sem
+  dificuldade nem modo automático no design doc — na verdade o design doc não fala sobre isso, mas
+  segui o padrão de `gates`/Bits e mantive `hasDifficulty: true` (±20% no tempo) e
+  `hasAutoplay: false`, por serem as fases mais próximas em mecânica (tempo + acerto, sem rodada
+  automática óbvia de desenhar para 3 mecânicas diferentes na mesma estação).
+- **`released: true`** — política combinada na Etapa 0.5/Etapa 7/Etapa 10: publica ao mergear.
+
+### Pedidos à base
+
+Nenhum. Não precisei de nenhuma mudança em `shared/circuit` nem `shared/binary`: a interface de
+`gates` (particularmente `GateType` já incluir `XOR`, e `CircuitTemplate` aceitar `GateNode`s fixos
+misturados com `SlotNode`s) cobriu tudo que o design doc previa.
+
+### Pendências
+
+- Números calibrados à mão (tempo por fase, pares fixos do tutorial, desafios da Fase 4), sem
+  playtest humano — mesma ressalva já registrada por Armazenamento/Ciclo/Cache/Rede.
+- A interação da Fase 1 (soma manual) ficou mais simples do que o texto do design doc sugere
+  (confirmação da conta inteira, não coluna a coluna com o jogo travando a casa certa antes de
+  deixar avançar) — ver suposição acima. Se o dono do projeto quiser a interação por coluna,
+  `checkColumn` já existe e testado, faltando só a cena consumir isso passo a passo.
+- Validação e2e completa (6 formatos × CI) fica para a fase de testes do orquestrador, como
+  pedido — só rodei `e2e/alu.spec.ts` localmente (3 testes × 6 projetos, todos verdes).
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
