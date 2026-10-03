@@ -8,7 +8,14 @@ import {
 } from './helpers'
 
 /** Ids das fases de Bits, na ordem da trilha do jogo (ver `src/games/bits/phases.ts`). */
-export const BITS_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5'] as const
+export const BITS_PHASES = [
+  'tutorial',
+  'nivel-1',
+  'nivel-2',
+  'nivel-3',
+  'nivel-4',
+  'nivel-5',
+] as const
 
 /**
  * Espera as fontes (self-hosted, `font-display: swap`) terminarem de
@@ -32,23 +39,23 @@ const TARGETS: Record<string, number> = {
 }
 
 /**
- * Lê os bits-alvo da fase atual na própria tela: o número-alvo (`.bits-target-value`,
- * "Alvo: N") convertido para bits, a linha da tabela de código (fase de letras,
- * que já mostra o binário) ou os pixels do desenho-alvo (fase de imagem). Não
- * depende de nenhuma função interna do app — só do que já está na tela.
+ * Lê os bits-alvo da fase atual na própria tela: o número-alvo (`.bits-packet-value`,
+ * o pacote viajando até a CPU) convertido para bits, a linha da tabela de
+ * código (fase de letras, que já mostra o binário) ou os pixels do
+ * desenho-alvo (fase de imagem, miniatura dentro do pacote). Não depende de
+ * nenhuma função interna do app — só do que já está na tela.
  */
 async function getTargetBits(page: Page): Promise<number[]> {
-  const imageCount = await page.locator('.bits-target .bits-pixel').count()
+  const imageCount = await page.locator('.bits-packet-grid i').count()
   if (imageCount > 0) {
     return page
-      .locator('.bits-target .bits-pixel')
-      .evaluateAll((els) => els.map((el) => (el.classList.contains('bits-pixel--on') ? 1 : 0)))
+      .locator('.bits-packet-grid i')
+      .evaluateAll((els) => els.map((el) => (el.classList.contains('on') ? 1 : 0)))
   }
 
   const alphabetCount = await page.locator('.bits-alphabet').count()
   if (alphabetCount > 0) {
-    const label = await page.locator('.bits-target-value').innerText()
-    const letter = label.replace(/^.*:\s*/, '').trim()
+    const letter = (await page.locator('.bits-packet-value').innerText()).trim()
     // A tabela vive dentro de um <details> fechado por padrão: `innerText`
     // respeita a renderização (ficaria vazio); `textContent` não.
     const rows = await page
@@ -56,15 +63,10 @@ async function getTargetBits(page: Page): Promise<number[]> {
       .evaluateAll((els) => els.map((el) => el.textContent ?? ''))
     const row = rows.find((r) => r.trim().startsWith(`${letter} =`))
     if (!row) throw new Error(`letra-alvo "${letter}" não encontrada na tabela`)
-    return row
-      .split('=')[1]!
-      .trim()
-      .replace(/\s+/g, '')
-      .split('')
-      .map(Number)
+    return row.split('=')[1]!.trim().replace(/\s+/g, '').split('').map(Number)
   }
 
-  const label = await page.locator('.bits-target-value').innerText()
+  const label = await page.locator('.bits-packet-value').innerText()
   const value = Number(label.replace(/[^\d]/g, ''))
   const bitCount = await page.locator('.bits-field [data-bit]').count()
   const bits: number[] = []
@@ -118,11 +120,12 @@ async function matchCurrentTarget(page: Page) {
 async function winPhase(page: Page, targets: number) {
   for (let i = 0; i < targets; i++) {
     await matchCurrentTarget(page)
-    // 80ms era curto demais sob carga (suíte inteira em paralelo): a leitura
-    // do próximo alvo chegava a pegar o estado antigo antes do re-render,
-    // fazendo o último toque da fase sumir e o teste nunca ver `/resultado`
-    // (observado de forma intermitente, em projetos diferentes a cada run).
-    await page.waitForTimeout(150)
+    // Depois de bater o alvo, a cena segura uma pausa de comemoração antes
+    // de liberar o próximo (ver `BitsScene` `MATCH_LOCK_MS`, 700ms reais
+    // divididos pela velocidade do teste — até 175ms no speed=4 mais lento
+    // usado aqui). 260ms cobre essa pausa com folga; menos que isso, a
+    // leitura do próximo alvo pega a fileira ainda travada na revelação.
+    await page.waitForTimeout(260)
   }
   await expect(page).toHaveURL(/resultado$/, { timeout: 15_000 })
 }
@@ -189,7 +192,9 @@ test.describe('jornada de Bits', () => {
     await winPhase(page, TARGETS['nivel-2']!)
     await expect(page.getByText('Card novo no Manual')).toBeVisible()
     await page.getByRole('button', { name: 'Ver card' }).click()
-    await expect(page.getByRole('dialog').getByRole('heading', { name: 'Bit e byte' })).toBeVisible()
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: 'Bit e byte' }),
+    ).toBeVisible()
     await page.getByRole('dialog').getByRole('button', { name: 'Fechar' }).click()
 
     // Manual mostra o card ganho
@@ -211,7 +216,9 @@ test.describe('jornada de Bits', () => {
     await expect(page.getByRole('heading', { name: 'Pausado' })).toBeHidden()
   })
 
-  test('fase "sem cola" (sem valor das casas) e fase de letras não cortam nada', async ({ page }) => {
+  test('fase "sem cola" (sem valor das casas) e fase de letras não cortam nada', async ({
+    page,
+  }) => {
     await seedProgress(page, 'bits', BITS_PHASES, 4, { untimed: true })
     await startPhase(page, 'bits', 'nivel-4', 8)
     await fontsReady(page)
@@ -239,8 +246,9 @@ test.describe('jornada de Bits', () => {
   test('perder mostra dica e permite tentar sem tempo', async ({ page }) => {
     await seedProgress(page, 'bits', BITS_PHASES, 1)
     await startPhase(page, 'bits', 'nivel-1', 20)
-    // não joga: o tempo acaba
-    await expect(page.getByRole('heading', { name: 'Tempo esgotado' })).toBeVisible({
+    // não joga: os alvos caem sem bater até zerar as 3 vidas (mais rápido
+    // que o relógio geral acabar, ver `logic/rules.ts` `missTarget`)
+    await expect(page.getByRole('heading', { name: 'Sem vidas' })).toBeVisible({
       timeout: 30_000,
     })
     await expect(page.getByText('Dica do Kernel')).toBeVisible()
@@ -257,7 +265,10 @@ test.describe('Bits pelo teclado', () => {
   })
 
   test('dá para jogar só com o teclado: Tab, Enter e as setas', async ({ page }) => {
-    await seedProgress(page, 'bits', BITS_PHASES, 1)
+    // Sem relógio: a checagem de setas/foco consome tempo real antes de
+    // resolver o primeiro alvo, e a fase tem alvos caindo quando cronometrada
+    // (ver `logic/rules.ts` `missTarget`).
+    await seedProgress(page, 'bits', BITS_PHASES, 1, { untimed: true })
     await startPhase(page, 'bits', 'nivel-1', 4)
     await fontsReady(page)
 

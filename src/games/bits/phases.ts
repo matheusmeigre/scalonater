@@ -6,6 +6,11 @@ export type BitsTargetKind = 'number' | 'letters' | 'image'
 export interface BitsPhase extends PhaseBase {
   /** Quantos interruptores a fileira tem (4, 8 ou 64 na Fase 5, em grade 8x8). */
   bitCount: 4 | 8 | 64
+  /**
+   * Vidas da fase: um alvo que "cai" até a fileira sem bater custa uma vida
+   * (ver `missTarget`). `undefined` no tutorial: sem relógio, não há queda.
+   */
+  lives?: number
   /** Fase 5 usa grade 8x8 em vez de fileira única. */
   layout: 'row' | 'grid'
   /** Fases 1 e 2 mostram o valor de cada casa; Fases 3, 4 e 5 escondem. */
@@ -38,36 +43,18 @@ export const ALPHABET = ['A', 'E', 'I', 'L', 'M', 'O', 'S', 'T'] as const
  * linha. Simples de propósito: carinha, seta e coração.
  */
 const SMILEY: readonly (0 | 1)[] = [
-  0, 0, 0, 1, 1, 0, 0, 0,
-  0, 0, 1, 0, 0, 1, 0, 0,
-  0, 1, 0, 0, 0, 0, 1, 0,
-  0, 1, 0, 1, 0, 1, 0, 0,
-  0, 1, 0, 0, 0, 0, 1, 0,
-  0, 1, 0, 1, 1, 1, 0, 0,
-  0, 0, 1, 0, 0, 1, 0, 0,
-  0, 0, 0, 1, 1, 0, 0, 0,
+  0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0,
+  1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0,
 ]
 
 const ARROW: readonly (0 | 1)[] = [
-  0, 0, 0, 0, 1, 0, 0, 0,
-  0, 0, 0, 1, 1, 1, 0, 0,
-  0, 0, 1, 1, 1, 1, 1, 0,
-  0, 1, 1, 1, 1, 1, 1, 1,
-  0, 0, 0, 1, 1, 1, 0, 0,
-  0, 0, 0, 1, 1, 1, 0, 0,
-  0, 0, 0, 1, 1, 1, 0, 0,
-  0, 0, 0, 1, 1, 1, 0, 0,
+  0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0,
+  0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0,
 ]
 
 const HEART: readonly (0 | 1)[] = [
-  0, 1, 1, 0, 0, 1, 1, 0,
-  1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1,
-  1, 1, 1, 1, 1, 1, 1, 1,
-  0, 1, 1, 1, 1, 1, 1, 0,
-  0, 0, 1, 1, 1, 1, 0, 0,
-  0, 0, 0, 1, 1, 0, 0, 0,
-  0, 0, 0, 0, 0, 0, 0, 0,
+  0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+  1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ]
 
 export const IMAGES = [SMILEY, ARROW, HEART] as const
@@ -89,6 +76,7 @@ export const PHASES: readonly BitsPhase[] = [
     id: 'nivel-1',
     kind: 'level',
     canLose: true,
+    lives: 3,
     bitCount: 4,
     layout: 'row',
     showPlaceValues: true,
@@ -101,6 +89,7 @@ export const PHASES: readonly BitsPhase[] = [
     id: 'nivel-2',
     kind: 'level',
     canLose: true,
+    lives: 3,
     unlocksCard: 'bit-byte',
     bitCount: 8,
     layout: 'row',
@@ -114,6 +103,7 @@ export const PHASES: readonly BitsPhase[] = [
     id: 'nivel-3',
     kind: 'level',
     canLose: true,
+    lives: 3,
     bitCount: 8,
     layout: 'row',
     showPlaceValues: false,
@@ -126,6 +116,7 @@ export const PHASES: readonly BitsPhase[] = [
     id: 'nivel-4',
     kind: 'level',
     canLose: true,
+    lives: 3,
     unlocksCard: 'codigo-caractere',
     bitCount: 8,
     layout: 'row',
@@ -140,6 +131,7 @@ export const PHASES: readonly BitsPhase[] = [
     id: 'nivel-5',
     kind: 'level',
     canLose: true,
+    lives: 3,
     bitCount: 64,
     layout: 'grid',
     showPlaceValues: false,

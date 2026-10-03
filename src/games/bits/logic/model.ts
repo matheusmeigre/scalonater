@@ -6,6 +6,11 @@ export interface BitsConfig {
   goal: number
   /** Segundos totais da fase (ignorado no modo sem tempo e no tutorial). */
   time: number
+  /**
+   * Segundos que um alvo leva para "cair" até a fileira antes de errar
+   * (ignorado no modo sem tempo e no tutorial, ver `missTarget`).
+   */
+  perTargetTime: number
 }
 
 /**
@@ -24,9 +29,9 @@ export function resolveConfig(
   }
   goal = Math.max(1, goal)
 
-  let time = phase.targetCount * phase.secondsPerTarget
-  if (difficulty === 'easy') time *= 1.3
-  else if (difficulty === 'hard') time *= 0.8
+  const mult = difficulty === 'easy' ? 1.3 : difficulty === 'hard' ? 0.8 : 1
+  const time = Math.round(phase.targetCount * phase.secondsPerTarget * mult)
+  const perTargetTime = Math.round(phase.secondsPerTarget * mult)
 
-  return { goal, time: Math.round(time) }
+  return { goal, time, perTargetTime }
 }

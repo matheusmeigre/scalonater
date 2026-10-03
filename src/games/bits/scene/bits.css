@@ -1,79 +1,315 @@
 /* ---------------------------------------------------------------------------
-   Layout da cena de Bits (design doc `docs/design/bits.md`):
-   - celular em pé: nível, controles, HUD, alvo, fileira, narrador;
-   - celular deitado: alvo e fileira lado a lado para caber em ~375-400px de altura;
-   - desktop / tablet deitado: HUD ao lado do alvo+fileira.
+   Layout da cena de Bits (design doc `docs/design/bits.md`, revisão
+   "pacote até a CPU"): nível+controles, HUD, o campo inteiro numa única
+   coluna vertical (fila de próximos → esteira → CPU, interruptores, medidor
+   de soma), narrador. Mesmo padrão de E/S (`io.css`): uma só área de campo,
+   nunca duas colunas lado a lado.
    --------------------------------------------------------------------------- */
 .bits-layout {
   display: grid;
   width: 100%;
-  max-width: 960px;
+  max-width: 900px;
   min-height: 100dvh;
   margin: 0 auto;
   gap: 10px;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   grid-template-areas:
     'level'
     'ctrl'
     'stats'
-    'target'
     'field'
     'nar';
 }
-@media (min-width: 760px) and (min-height: 521px) {
+@media (min-width: 760px) {
   .bits-layout {
-    max-width: 1100px;
-    gap: 14px;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
       'level ctrl'
       'stats stats'
-      'target field'
+      'field field'
       'nar nar';
   }
 }
-/* celular deitado: alvo e fileira lado a lado, sem precisar da largura de desktop */
 @media (orientation: landscape) and (max-height: 520px) {
   .bits-layout {
     height: 100dvh;
     min-height: 0;
-    gap: 6px 12px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    grid-template-areas:
-      'level stats'
-      'target field'
-      'nar ctrl';
+    gap: 6px 10px;
   }
 }
 
-.bits-target {
-  grid-area: target;
+.bits-field {
+  position: relative;
+  grid-area: field;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 6px;
-  text-align: center;
+  gap: 12px;
+  min-width: 0;
 }
-.bits-target-value {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(28px, 6vw, 48px);
-  color: var(--color-gold);
-}
+
 .bits-word {
   margin: 0;
+  text-align: center;
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 18px;
   letter-spacing: 4px;
   color: var(--color-cyan);
   text-transform: uppercase;
 }
+
+/* ---------------------------------------------------------------------------
+   Placa: fila de próximos, esteira (o pacote viaja até a CPU) e a CPU.
+   --------------------------------------------------------------------------- */
+.bits-board {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'queue track cpu';
+  align-items: center;
+  gap: 14px;
+}
+@media (max-width: 639.98px) {
+  .bits-board {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'queue queue'
+      'track cpu';
+    row-gap: 8px;
+  }
+}
+
+.bits-queue {
+  grid-area: queue;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+@media (max-width: 639.98px) {
+  .bits-queue {
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+  }
+}
+.bits-queue-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.bits-queue-chips {
+  display: flex;
+  gap: 6px;
+}
+.bits-chip {
+  min-width: 40px;
+  border: 1.5px dashed var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-raised);
+  color: var(--color-muted);
+  font-family: var(--font-display);
+  font-size: 15px;
+  text-align: center;
+  padding: 4px 6px;
+  opacity: 0.75;
+}
+.bits-chip:nth-child(2) {
+  opacity: 0.5;
+}
+.bits-chip--empty {
+  opacity: 0.4;
+}
+.bits-chip--image {
+  width: 40px;
+  height: 40px;
+  padding: 3px;
+}
+
+/* miniaturas de 8x8, decorativas (fila e pacote da Fase 5) */
+.bits-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
+  width: 100%;
+  height: 100%;
+}
+.bits-mini-grid i {
+  display: block;
+  aspect-ratio: 1;
+  background: var(--color-panel-selected);
+  border-radius: 1px;
+}
+.bits-mini-grid i.on {
+  background: var(--color-gold);
+}
+
+.bits-track {
+  grid-area: track;
+  position: relative;
+  height: 92px;
+  border: 2px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  overflow: hidden;
+  --pw: 108px;
+}
+@media (min-width: 760px) {
+  .bits-track {
+    height: 112px;
+    --pw: 136px;
+  }
+}
+.bits-wire {
+  position: absolute;
+  inset: 50% 10px auto;
+  border-top: 3px dashed var(--color-cyan);
+  opacity: 0.4;
+}
+.bits-danger {
+  position: absolute;
+  top: 10%;
+  right: 0;
+  bottom: 10%;
+  width: 26%;
+  border: 1.5px dashed var(--color-danger);
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+.bits-danger small {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-danger);
+}
+
+.bits-packet {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: var(--pw);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 2px solid var(--color-gold);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-raised);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-gold) 10%, transparent);
+  padding: 6px 8px;
+  text-align: center;
+}
+.bits-packet-value {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 5vw, 32px);
+  line-height: 1.05;
+  color: var(--color-gold);
+}
+.bits-packet-binary {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: var(--color-muted);
+}
+.bits-packet-grid {
+  width: 44px;
+  height: 44px;
+}
+.bits-packet--danger {
+  border-color: var(--color-danger);
+}
+.bits-packet--danger .bits-packet-value {
+  color: var(--color-danger);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bits-packet--danger {
+    animation: bits-throb 0.5s infinite alternate;
+  }
+}
+.bits-packet--done {
+  border-color: var(--color-mint);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-mint) 45%, transparent);
+}
+.bits-packet--done .bits-packet-value,
+.bits-packet--done .bits-packet-binary {
+  color: var(--color-mint);
+}
+.bits-packet--missed {
+  border-color: var(--color-cyan);
+}
+.bits-packet--missed .bits-packet-value,
+.bits-packet--missed .bits-packet-binary {
+  color: var(--color-cyan);
+}
+@keyframes bits-throb {
+  to {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-danger) 18%, transparent);
+  }
+}
+
+.bits-cpu {
+  grid-area: cpu;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 78px;
+  height: 78px;
+  border: 2px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-raised);
+  color: var(--color-muted);
+}
+@media (min-width: 760px) {
+  .bits-cpu {
+    width: 96px;
+    height: 96px;
+  }
+}
+.bits-cpu-icon {
+  width: 32px;
+  height: 32px;
+}
+.bits-cpu b {
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+}
+@keyframes bits-cpu-hit {
+  30% {
+    transform: scale(1.12) rotate(-3deg);
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}
+.bits-cpu--hit {
+  animation: bits-cpu-hit 0.4s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bits-cpu--hit {
+    animation: none;
+    border-color: var(--color-danger);
+    color: var(--color-danger);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Tabela de código (fase de letras): fica parada ao lado/abaixo da placa.
+   --------------------------------------------------------------------------- */
 .bits-alphabet {
-  margin-top: 6px;
+  text-align: center;
   color: var(--color-muted);
   font-size: 13px;
 }
@@ -86,6 +322,7 @@
   padding: 0;
   display: grid;
   grid-template-columns: repeat(4, auto);
+  justify-content: center;
   gap: 4px 12px;
 }
 .bits-alphabet-current {
@@ -93,24 +330,25 @@
   font-weight: 700;
 }
 
-.bits-field {
-  grid-area: field;
+/* ---------------------------------------------------------------------------
+   Interruptores: acerto/erro tingem a fileira inteira por cima (os bits
+   mostrados já são a resposta certa, ver `BitsScene` `displayBits`).
+   --------------------------------------------------------------------------- */
+.bits-grid-wrap {
   display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: center;
-  gap: 14px;
-  min-width: 0;
 }
-.bits-sum {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(20px, 4vw, 30px);
-  color: var(--color-ink);
+.bits-grid-wrap--matched .bit-switch--on {
+  border-color: var(--color-mint);
+  background: color-mix(in srgb, var(--color-mint) 22%, var(--color-panel-selected));
+  color: var(--color-mint);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-mint) 40%, transparent);
 }
-.bits-binary {
-  font-size: 15px;
-  color: var(--color-muted);
+.bits-grid-wrap--missed .bit-switch--on {
+  border-color: var(--color-cyan);
+  background: color-mix(in srgb, var(--color-cyan) 22%, var(--color-panel-selected));
+  color: var(--color-cyan);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-cyan) 40%, transparent);
 }
 
 /*
@@ -131,6 +369,7 @@
   gap: 3px;
   max-width: 420px;
   width: 100%;
+  margin: 0 auto;
 }
 .bits-grid--preview {
   /* A pré-visualização do alvo é só decorativa (aria-hidden): sem alvo de
@@ -151,4 +390,171 @@
 }
 .bits-pixel--on {
   background: var(--color-ink);
+}
+
+/* ---------------------------------------------------------------------------
+   Medidor de soma × alvo: mostra o quanto falta (ou passou) sem revelar o
+   valor de cada casa (a Fase 3 continua "sem cola").
+   --------------------------------------------------------------------------- */
+.bits-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+}
+.bits-meter-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.bits-sum {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(18px, 4vw, 24px);
+  color: var(--color-ink);
+}
+.bits-sum small {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-muted);
+  margin-left: 4px;
+}
+.bits-status {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-raised);
+  border: 1.5px solid var(--color-line);
+  color: var(--color-muted);
+}
+.bits-status--hit {
+  color: var(--color-mint);
+  border-color: color-mix(in srgb, var(--color-mint) 50%, transparent);
+  background: color-mix(in srgb, var(--color-mint) 14%, var(--color-panel-raised));
+}
+.bits-status--over {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-panel-raised));
+}
+.bits-gauge {
+  position: relative;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-line);
+}
+.bits-gauge-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 999px;
+  background: var(--color-cyan);
+  transition: width 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.bits-gauge-over {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0 999px 999px 0;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-danger) 0 6px,
+    color-mix(in srgb, var(--color-danger) 70%, black) 6px 12px
+  );
+  transition:
+    width 0.25s,
+    left 0.25s;
+}
+.bits-gauge-mark {
+  position: absolute;
+  top: -8px;
+  bottom: -8px;
+  width: 3px;
+  margin-left: -1.5px;
+  background: var(--color-gold);
+  border-radius: 2px;
+  transition: left 0.4s;
+}
+.bits-gauge-mark span {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 2px;
+  background: var(--color-gold);
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.bits-gauge-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.bits-tools {
+  display: flex;
+  justify-content: center;
+}
+.bits-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  font-size: 14px;
+  font-weight: 700;
+}
+.bits-tool:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* "+pontos" ao bater um alvo (juice): sobe e some sozinho, decorativo. */
+.bits-popups {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 0;
+  z-index: 1;
+}
+.bits-popup {
+  position: absolute;
+  left: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--color-mint);
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: bits-popup-rise 0.7s ease-out forwards;
+}
+@keyframes bits-popup-rise {
+  0% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -34px);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bits-popup {
+    animation: none;
+  }
 }

@@ -3,12 +3,15 @@ import { toBits } from '@/games/shared/binary'
 import { IMAGES, PHASES } from '../phases'
 import {
   checkTarget,
+  clearBits,
   computeOutcome,
   countToggles,
   createGame,
   markLost,
+  missTarget,
   nextTarget,
   toggleBit,
+  upcomingTargets,
   type BitsState,
 } from './rules'
 
@@ -42,6 +45,16 @@ describe('createGame', () => {
     const a = createGame(nivel1, 6, 42)
     const b = createGame(nivel1, 6, 42)
     expect(a.target).toBe(b.target)
+  })
+
+  it('se o primeiro alvo sorteado já bate com a fileira zerada, credita o acerto sozinha', () => {
+    // Seed 7: o primeiro alvo sorteado para `nivel1` é 0, igual à fileira
+    // inicial (toda em zero). Sem o acerto automático, a fase travaria
+    // esperando um toque que não precisa acontecer (nenhum bit difere).
+    const g = createGame(nivel1, 6, 7)
+    expect(g.target).not.toBe(0)
+    expect(g.hits).toBe(1)
+    expect(g.status).toBe('playing')
   })
 
   it('duas sessões com a mesma semente geram a mesma sequência de alvos', () => {
@@ -80,7 +93,7 @@ describe('toggleBit', () => {
   })
 
   it('bater o alvo gera o evento "matched" e sorteia o próximo', () => {
-    let g = createGame(nivel1, 6, 3)
+    let g = createGame(nivel1, 6, 2)
     const target = g.target as number
     const before = g.hits
     g = solveNumber(g, target)
@@ -184,7 +197,7 @@ describe('countToggles / bônus de eficiência (fase "sem cola")', () => {
   })
 
   it('bater o alvo no mínimo de toques soma bônus de pontos (bonusHits)', () => {
-    const g = createGame(nivel3, 5, 1)
+    const g = createGame(nivel3, 5, 2)
     const target = g.target as number
     const solved = solveNumber(g, target)
     // minToggles é a distância de Hamming entre a fileira (toda 0) e o alvo;
@@ -211,6 +224,100 @@ describe('fase de letras (nivel-4)', () => {
     let g = createGame(nivel4, 4, 1)
     for (let i = 0; i < 4; i++) g = solveNumber(g, g.target as number)
     expect(g.status).toBe('won')
+  })
+})
+
+describe('clearBits ("Apagar tudo")', () => {
+  it('zera a fileira sem contar como toque de eficiência', () => {
+    let g = createGame(nivel3, 5, 2)
+    g = toggleBit(g, 0).state
+    const toggles = countToggles(g)
+    const { state, events } = clearBits(g)
+    expect(state.bits.every((b) => b === 0)).toBe(true)
+    expect(countToggles(state)).toBe(toggles)
+    expect(events[0]).toEqual({ type: 'cleared' })
+  })
+
+  it('se o alvo já for zero, apagar bate o alvo sozinho', () => {
+    // Seed 2: o primeiro alvo de nivel1 é 0 (ver teste de createGame acima).
+    let g = createGame(nivel1, 6, 7)
+    g = toggleBit(g, 0).state // afasta a fileira de zero
+    const { state, events } = clearBits(g)
+    if (state.target === 0) {
+      expect(events.some((e) => e.type === 'matched')).toBe(true)
+    } else {
+      expect(state.bits.every((b) => b === 0)).toBe(true)
+    }
+  })
+
+  it('não faz nada se a fase já terminou', () => {
+    const g = createGame(nivel1, 1, 1)
+    const won = solveNumber(g, g.target as number)
+    expect(won.status).toBe('won')
+    expect(clearBits(won).state).toBe(won)
+  })
+})
+
+describe('upcomingTargets (fila de próximos alvos)', () => {
+  it('devolve os `n` alvos seguintes ao atual, na mesma ordem de `nextTarget`', () => {
+    let g = createGame(nivel1, 6, 123)
+    const peek = upcomingTargets(g, 2)
+    g = solveNumber(g, g.target as number)
+    expect(peek[0]).toBe(g.target)
+    const g2 = solveNumber(g, g.target as number)
+    expect(peek[1]).toBe(g2.target)
+  })
+
+  it('no fim da fase, devolve menos de `n` (ou nenhum)', () => {
+    let g = createGame(nivel1, 1, 1)
+    g = solveNumber(g, g.target as number)
+    expect(g.status).toBe('won')
+    expect(upcomingTargets(g, 2).length).toBeLessThanOrEqual(2)
+  })
+})
+
+describe('missTarget (alvo "caiu" sem bater)', () => {
+  it('nas fases de nível, começa com as vidas de `phase.lives`', () => {
+    const g = createGame(nivel1, 6, 1)
+    expect(g.lives).toBe(nivel1.lives)
+    expect(g.maxLives).toBe(nivel1.lives)
+  })
+
+  it('no tutorial (sem `lives`), não faz nada', () => {
+    const g = createGame(tutorial, 2, 1)
+    const { state, events } = missTarget(g)
+    expect(events).toEqual([])
+    expect(state).toBe(g)
+  })
+
+  it('perder um alvo custa uma vida, quebra o combo e sorteia o próximo', () => {
+    let g = createGame(nivel1, 6, 11)
+    g = solveNumber(g, g.target as number) // 1 acerto, combo = 1
+    const target = g.target
+    const { state, events } = missTarget(g)
+    expect(state.lives).toBe(g.lives - 1)
+    expect(state.misses).toBe(1)
+    expect(state.scoring.combo).toBe(0)
+    expect(state.target).not.toBe(target)
+    expect(state.status).toBe('playing')
+    expect(events.map((e) => e.type)).toEqual(['missed', 'advanced'])
+  })
+
+  it('zerar as vidas perde a fase', () => {
+    let g = createGame(nivel1, 6, 11)
+    for (let i = 0; i < (nivel1.lives ?? 0) - 1; i++) g = missTarget(g).state
+    expect(g.status).toBe('playing')
+    const { state, events } = missTarget(g)
+    expect(state.lives).toBe(0)
+    expect(state.status).toBe('lost')
+    expect(events.map((e) => e.type)).toEqual(['missed', 'out-of-lives'])
+  })
+
+  it('já tendo perdido ou vencido, não faz mais nada', () => {
+    const g = createGame(nivel1, 1, 1)
+    const won = solveNumber(g, g.target as number)
+    expect(won.status).toBe('won')
+    expect(missTarget(won).state).toBe(won)
   })
 })
 
