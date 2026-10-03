@@ -147,7 +147,7 @@ export function GameHub() {
         <div className="min-w-0">
           <h1
             data-screen-title
-            className="m-0 text-[30px] tracking-[1px] uppercase outline-none sm:text-[44px]"
+            className="wrap-anywhere m-0 text-[30px] tracking-[1px] uppercase outline-none sm:text-[44px]"
           >
             {copy.title}
           </h1>
