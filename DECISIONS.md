@@ -303,6 +303,74 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   fonte no `compact:`. Vale revisar outras estações com título de uma palavra longa (ex.:
   "Interrupções").
 
+## Etapa 5 — O ciclo da CPU
+
+Estação `cycle`: o jogador leva cada instrução de um miniprograma pelas três estações do ciclo
+— Buscar, Decodificar, Executar —, reaproveitando a estante de gavetas de `src/games/shared/memory`
+(estação Memória) para o programa e os dados. Design doc: `docs/design/cycle.md`, seguido com
+algumas extensões documentadas abaixo (o contrato de instruções, a codificação e as falas são do
+doc; os números exatos dos programas de cada fase são meus).
+
+### Suposições
+
+- **`totalExecutions` (campo extra em `CyclePhase`, fora do contrato do design doc):** a vitória
+  não pode ser só "o PC passa do fim do programa" — a Fase 1 termina com um `PULA 00` que volta o
+  PC para o endereço 0 de propósito ("fim de rodada", conforme o próprio doc), então o PC nunca
+  "passa do fim" ali. Em vez disso, cada fase declara quantas execuções a completam (contando as
+  repetições do laço da Fase 3), e `computeOutcome`/`executeStation` vencem quando
+  `executedCount >= totalExecutions` (mais a meta de ACC, se a fase tiver uma). Mesma lógica de
+  extensão própria já usada pela Memória (`tutorial?`) e pelo Armazenamento (`tutorial?`).
+- **`data` (campo extra em `CyclePhase`):** dados fora do programa (contadores, operandos de
+  `SOMA`) ficam em endereços próprios, gravados por `loadProgram` junto com o programa. O design
+  doc não cobre "dados fora do programa" no contrato, só o programa em si.
+- **Dado × instrução na mesma estante:** como ambos são só `number` nas gavetas (módulo
+  compartilhado), um valor só é tratado como instrução quando o opcode decodificado cai em
+  1..5 (`decodeCellValue`); valores de dado ficam sempre abaixo de 100 (opcode 0) nos programas
+  que escrevi, então nunca colidem. `renderValue` e `labelFor` da estante usam essa mesma regra.
+- **Programas e números de cada fase (não fixados pelo design doc, só o formato):** calibrei à
+  mão para cada fase ensinar exatamente a ideia nova da tabela do doc — Fase 1 (PC avança só,
+  sem meta de ACC), Fase 2/4 (ACC final = 15, mesma meta, Fase 4 com metade do
+  `secondsPerStation`), Fase 3 (laço de 3 repetições, contador decrescente numa gaveta,
+  `maxLoopIterations: 6` como margem de segurança). Sem playtest humano.
+- **Decodificação errada é o único tipo de "erro" contado:** a tabela do doc cita, na Fase 2,
+  "3 decodificações erradas **ou** 2 execuções no registrador errado" como derrota — mas a
+  mecânica descrita (seção "Mecânica principal") só tem um botão único "Executar" (sem escolha de
+  registrador), então não há como o jogador "executar no registrador errado" à parte de já ter
+  decodificado errado. Tratei isso como uma inconsistência de rascunho no doc e contei só erros de
+  decodificação (e de estação expirada, pelo relógio) — a CPU sempre executa a instrução já
+  corretamente decodificada.
+- **Layout das três estações empilhado, não lado a lado (diferente do esboço ASCII do doc):** a
+  paleta de 5 peças (Decodificar) precisa de largura para os botões chegarem a 44px de toque; com
+  as três caixas em linha (mobile em pé, ou a barra lateral do layout grande), a paleta ficava com
+  menos de 44px por botão. `cycle-stations` empilha as três caixas em qualquer tamanho de tela —
+  a ordem Buscar → Decodificar → Executar continua clara, só que vertical em vez de em linha.
+- **Peça da paleta sem `aria-label` próprio:** o texto visível (`CARREGA`, `SOMA`...) já é o nome
+  acessível do botão; não há ambiguidade a desfazer (diferente da gaveta, que precisa de um rótulo
+  mais longo com endereço e conteúdo).
+- **Sem dificuldade nem modo automático:** `hasDifficulty: false`, `hasAutoplay: false` — o design
+  doc não descreve nenhum dos dois para esta estação.
+- **`released: true`** — política combinada na Etapa 0.5/Etapa 7: publica ao mergear.
+
+### Pedidos à base / achados fora do meu escopo
+
+- **Integração entre estações já mergeadas quebrou a suposição "a primeira estação da trilha
+  está sempre livre" de specs já existentes:** com Bits, Memória, Armazenamento e Interrupções já
+  na `master`, a progressão "linear, com exceção" passou a exigir Bits **e** Memória completos
+  antes de liberar o Ciclo no mapa (`stationStatus`/`effectivePrerequisites`). O mesmo já afeta
+  `e2e/memory.spec.ts` (confirmei rodando-o: falha no mesmo clique em `[data-station="memory"]`
+  por exigir Bits completo primeiro, algo que não existia quando aquele spec foi escrito). Meu
+  `e2e/cycle.spec.ts` contorna isso marcando Bits e Memória como completos direto no
+  `localStorage` antes do teste de jornada (função `seedPrerequisites`), mas os specs das
+  estações anteriores a mim provavelmente também precisam desse mesmo ajuste — não editei os
+  specs de outras estações (fora do meu escopo).
+- **`e2e/cycle.spec.ts`, teste de jornada completa, falha no projeto `small-phone-320`** (320px):
+  o clique em "Ver card" é bloqueado por um elemento interceptando o ponteiro (o papel de fala do
+  Kernel, em `src/shell/screens/ResultScreen.tsx`), mesmo com o botão "visível, habilitado e
+  estável" segundo o Playwright. Só reproduz em 320px — passa em `desktop`, `iphone-se` (375px) e
+  `phone-landscape`. Como `ResultScreen.tsx` é `src/shell/**` (fora do meu escopo de edição), não
+  investiguei a fundo; registro aqui para a base revisar (pode ser um problema do próprio
+  `ResultScreen` nesse breakpoint, não específico do Ciclo).
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
@@ -315,3 +383,11 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   por simulação, não por playtest humano; vale revisar a dificuldade depois de jogar de
   verdade. A derrota por "sem espaço" (Fases 1–2) tem regra e teste de unidade, mas não é
   alcançável pela jornada normal das fases como calibradas (ver suposições da Etapa 7).
+- **Ciclo da CPU (Etapa 5):** números de programa/tempo calibrados por simulação, sem playtest
+  humano; a suposição de "decodificação errada é o único tipo de erro" (ver acima) merece
+  confirmação do dono do projeto, já que o design doc menciona um segundo tipo de erro para a
+  Fase 2 que a mecânica descrita não suporta. O teste de jornada completa de `cycle.spec.ts`
+  falha em `small-phone-320` por um problema de `ResultScreen` (fora do meu escopo) — ver
+  "Pedidos à base" acima. Specs e2e de estações anteriores (ao menos a Memória) provavelmente
+  também precisam seedar os pré-requisitos da trilha depois da integração; não ajustei os specs
+  de outras estações.
