@@ -1,0 +1,147 @@
+/* ---------------------------------------------------------------------------
+   Layout da cena de Bits (design doc `docs/design/bits.md`):
+   - celular em pé: nível, controles, HUD, alvo, fileira, narrador;
+   - celular deitado: alvo e fileira lado a lado para caber em ~375-400px de altura;
+   - desktop / tablet deitado: HUD ao lado do alvo+fileira.
+   --------------------------------------------------------------------------- */
+.bits-layout {
+  display: grid;
+  width: 100%;
+  max-width: 960px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'target'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) and (min-height: 521px) {
+  .bits-layout {
+    max-width: 1100px;
+    gap: 14px;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'target field'
+      'nar nar';
+  }
+}
+/* celular deitado: alvo e fileira lado a lado, sem precisar da largura de desktop */
+@media (orientation: landscape) and (max-height: 520px) {
+  .bits-layout {
+    height: 100dvh;
+    min-height: 0;
+    gap: 6px 12px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level stats'
+      'target field'
+      'nar ctrl';
+  }
+}
+
+.bits-target {
+  grid-area: target;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+.bits-target-value {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(28px, 6vw, 48px);
+  color: var(--color-gold);
+}
+.bits-word {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 4px;
+  color: var(--color-cyan);
+  text-transform: uppercase;
+}
+.bits-alphabet {
+  margin-top: 6px;
+  color: var(--color-muted);
+  font-size: 13px;
+}
+.bits-alphabet summary {
+  cursor: pointer;
+}
+.bits-alphabet ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 4px 12px;
+}
+.bits-alphabet-current {
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.bits-field {
+  grid-area: field;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  min-width: 0;
+}
+.bits-sum {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 4vw, 30px);
+  color: var(--color-ink);
+}
+.bits-binary {
+  font-size: 15px;
+  color: var(--color-muted);
+}
+
+/*
+ * Grade 8x8 (Fase 5): cada célula é um BitSwitch de 44px mínimo, mesmo em
+ * compact. Em telas muito estreitas (320px), 8 colunas de 44px (~373px) não
+ * cabem sem rolagem: a página nunca rola na horizontal (proibido), mas esta
+ * caixa pode, só ela, por dentro — risco já previsto no design doc.
+ */
+.bits-grid-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.bits-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(44px, 1fr));
+  gap: 3px;
+  max-width: 420px;
+  width: 100%;
+}
+.bits-grid--preview {
+  max-width: 160px;
+  gap: 1px;
+}
+.bits-pixel {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: var(--color-panel-raised);
+  border: 1px solid var(--color-line);
+}
+.bits-pixel--on {
+  background: var(--color-ink);
+}
