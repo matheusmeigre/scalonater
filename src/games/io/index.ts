@@ -16,7 +16,7 @@ export const ioGame = defineGame({
     icon: 'io',
     hasDifficulty: true,
     hasAutoplay: false,
-    released: false,
+    released: true,
   },
   copy: COPY,
   phases: PHASES,
