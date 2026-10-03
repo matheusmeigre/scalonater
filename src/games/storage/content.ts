@@ -108,8 +108,8 @@ export const CARDS: readonly ConceptCard[] = [
     title: 'A tabela que lembra onde está tudo',
     term: 'Sistema de arquivos',
     summary: 'A lista que liga o nome de cada arquivo aos blocos do disco onde ele está guardado.',
-    analogy: 'o índice de uma biblioteca, que diz a estante e a prateleira de cada livro',
-    realWorld: 'sem essa tabela, o disco seria só um amontoado de blocos sem nome',
+    analogy: 'O índice de uma biblioteca, que diz a estante e a prateleira de cada livro.',
+    realWorld: 'Sem essa tabela, o disco seria só um amontoado de blocos sem nome.',
     icon: 'storage',
   },
   {
@@ -119,9 +119,9 @@ export const CARDS: readonly ConceptCard[] = [
     summary:
       'Acontece quando não há um buraco contínuo grande o bastante, e o arquivo é dividido em pedaços espalhados pelo disco.',
     analogy:
-      'mudar de casa e não ter uma caixa grande — você distribui as coisas em várias caixas pequenas, numeradas',
+      'Mudar de casa e não ter uma caixa grande — você distribui as coisas em várias caixas pequenas, numeradas.',
     realWorld:
-      'desfragmentar foi uma manutenção comum em HDs antigos; em SSDs ela quase não ajuda, porque o custo de posição não existe',
+      'Desfragmentar foi uma manutenção comum em HDs antigos; em SSDs ela quase não ajuda, porque o custo de posição não existe.',
     icon: 'info',
   },
   {
@@ -131,9 +131,9 @@ export const CARDS: readonly ConceptCard[] = [
     summary:
       'O HD tem uma cabeça de leitura física que se move sobre discos giratórios; o SSD lê qualquer bloco direto, sem peça se movendo.',
     analogy:
-      'procurar uma música tocando o disco de vinil até o ponto certo (HD) contra apertar um botão num tocador digital (SSD)',
+      'Procurar uma música tocando o disco de vinil até o ponto certo (HD) contra apertar um botão num tocador digital (SSD).',
     realWorld:
-      'um SSD consegue ser 10 a 100 vezes mais rápido que um HD em acessos espalhados, exatamente por não depender de posição',
+      'Um SSD consegue ser 10 a 100 vezes mais rápido que um HD em acessos espalhados, exatamente por não depender de posição.',
     icon: 'storage',
   },
 ]
