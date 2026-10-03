@@ -1,17 +1,15 @@
 /* ---------------------------------------------------------------------------
-   Layout da cena de Bits (design doc `docs/design/bits.md`, revisão
-   "pacote até a CPU"): nível+controles, HUD, o campo inteiro numa única
-   coluna vertical (fila de próximos → esteira → CPU, interruptores, medidor
-   de soma), narrador. Mesmo padrão de E/S (`io.css`): uma só área de campo,
-   nunca duas colunas lado a lado.
+   Bits — réplica do protótipo "Decodificador de pacotes": painel da fase e
+   controles no topo, HUD de 4 cartões, a placa (fila → esteira → CPU,
+   lâmpadas, medidor, ferramentas) e o Kernel embaixo.
    --------------------------------------------------------------------------- */
 .bits-layout {
   display: grid;
   width: 100%;
-  max-width: 900px;
+  max-width: 1200px;
   min-height: 100dvh;
   margin: 0 auto;
-  gap: 10px;
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   grid-template-areas:
@@ -23,6 +21,7 @@
 }
 @media (min-width: 760px) {
   .bits-layout {
+    gap: 16px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto auto minmax(0, 1fr) auto;
     grid-template-areas:
@@ -32,282 +31,533 @@
       'nar nar';
   }
 }
-@media (orientation: landscape) and (max-height: 520px) {
-  .bits-layout {
-    height: 100dvh;
-    min-height: 0;
-    gap: 6px 10px;
+
+/* ---------- HUD ---------- */
+.bits-hud {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (min-width: 861px) {
+  .bits-hud {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+.bits-timer {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--color-ink);
+}
+.bits-timer small {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+@media (min-width: 760px) {
+  .bits-timer {
+    font-size: 26px;
+  }
+  .bits-timer small {
+    font-size: 14px;
+  }
+}
+.bits-tbar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  border: 1.5px solid var(--color-line);
+  overflow: hidden;
+}
+.bits-tbar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-cyan);
+  transition: background 0.3s;
+}
+.bits-tbar.warn i {
+  background: var(--color-danger);
+}
+.bits-count {
+  color: var(--color-gold);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+.bits-pips {
+  display: flex;
+  gap: 6px;
+}
+.bits-pip {
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  flex: 0 1 22px;
+  border-radius: 6px;
+  background: var(--color-line);
+}
+.bits-pip.ok {
+  background: var(--color-mint);
+}
+.bits-pip.bad {
+  background: var(--color-danger);
+}
+.bits-pip.now {
+  background: transparent;
+  border: 2px solid var(--color-gold);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bits-pip.now {
+    animation: bits-blink 1s infinite;
+  }
+}
+@media (max-width: 759.98px) {
+  .bits-pip {
+    height: 14px;
+    border-radius: 4px;
   }
 }
 
+/* ---------- placa ---------- */
 .bits-field {
-  position: relative;
   grid-area: field;
+  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 12px;
+  gap: 22px;
   min-width: 0;
+  padding: 26px 28px 24px;
+  border: 2px solid var(--color-line-strong);
+  border-radius: 28px;
+  background: #120f27;
+}
+.bits-screw {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--color-line-strong);
+}
+.bits-screw.a {
+  top: 12px;
+  left: 12px;
+}
+.bits-screw.b {
+  top: 12px;
+  right: 12px;
+}
+.bits-screw.c {
+  bottom: 12px;
+  left: 12px;
+}
+.bits-screw.d {
+  bottom: 12px;
+  right: 12px;
 }
 
 .bits-word {
   margin: 0;
   text-align: center;
   font-family: var(--font-display);
-  font-size: 18px;
-  letter-spacing: 4px;
+  font-size: 20px;
+  letter-spacing: 6px;
   color: var(--color-cyan);
-  text-transform: uppercase;
 }
 
-/* ---------------------------------------------------------------------------
-   Placa: fila de próximos, esteira (o pacote viaja até a CPU) e a CPU.
-   --------------------------------------------------------------------------- */
-.bits-board {
+.bits-lane {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: 'queue track cpu';
+  gap: 18px;
   align-items: center;
-  gap: 14px;
 }
-@media (max-width: 639.98px) {
-  .bits-board {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      'queue queue'
-      'track cpu';
-    row-gap: 8px;
-  }
-}
-
 .bits-queue {
-  grid-area: queue;
   display: flex;
   flex-direction: column;
+  gap: 6px;
   align-items: center;
-  gap: 4px;
+  min-width: 70px;
 }
-@media (max-width: 639.98px) {
-  .bits-queue {
-    flex-direction: row;
-    justify-content: center;
-    gap: 8px;
-  }
-}
-.bits-queue-label {
+.bits-lab {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-muted);
 }
-.bits-queue-chips {
-  display: flex;
-  gap: 6px;
-}
-.bits-chip {
-  min-width: 40px;
+.bits-qchip {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  min-height: 34px;
+  padding: 5px 0;
   border: 1.5px dashed var(--color-line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-raised);
+  border-radius: 10px;
+  background: var(--color-panel);
   color: var(--color-muted);
   font-family: var(--font-display);
-  font-size: 15px;
-  text-align: center;
-  padding: 4px 6px;
-  opacity: 0.75;
+  font-size: 17px;
 }
-.bits-chip:nth-child(2) {
+.bits-qchip:nth-of-type(2) {
   opacity: 0.5;
 }
-.bits-chip--empty {
-  opacity: 0.4;
-}
-.bits-chip--image {
-  width: 40px;
-  height: 40px;
-  padding: 3px;
-}
-
-/* miniaturas de 8x8, decorativas (fila e pacote da Fase 5) */
-.bits-mini-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 1px;
-  width: 100%;
-  height: 100%;
-}
-.bits-mini-grid i {
-  display: block;
-  aspect-ratio: 1;
-  background: var(--color-panel-selected);
-  border-radius: 1px;
-}
-.bits-mini-grid i.on {
-  background: var(--color-gold);
+.bits-qchip .bits-mini {
+  width: 28px;
 }
 
 .bits-track {
-  grid-area: track;
   position: relative;
-  height: 92px;
-  border: 2px solid var(--color-line);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg);
-  overflow: hidden;
-  --pw: 108px;
-}
-@media (min-width: 760px) {
-  .bits-track {
-    height: 112px;
-    --pw: 136px;
-  }
+  height: 112px;
+  --pw: 136px;
 }
 .bits-wire {
   position: absolute;
-  inset: 50% 10px auto;
-  border-top: 3px dashed var(--color-cyan);
-  opacity: 0.4;
-}
-.bits-danger {
-  position: absolute;
-  top: 10%;
+  left: 0;
   right: 0;
-  bottom: 10%;
-  width: 26%;
-  border: 1.5px dashed var(--color-danger);
-  border-right: 0;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  top: 50%;
+  border-top: 3px dashed var(--color-cyan);
+  opacity: 0.45;
 }
-.bits-danger small {
+.bits-zone {
   position: absolute;
-  top: 4px;
+  right: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 24%;
+  border: 1.5px dashed rgb(255 92 122 / 0.45);
+  border-radius: 14px;
+  background: rgb(255 92 122 / 0.07);
+}
+.bits-zone span {
+  position: absolute;
+  bottom: -22px;
   right: 4px;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-danger);
 }
-
 .bits-packet {
   position: absolute;
   top: 50%;
   left: 0;
   width: var(--pw);
   transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  padding: 8px 10px;
   border: 2px solid var(--color-gold);
-  border-radius: var(--radius-md);
-  background: var(--color-panel-raised);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-gold) 10%, transparent);
-  padding: 6px 8px;
+  border-radius: 16px;
+  background: var(--color-panel-selected);
   text-align: center;
+  box-shadow:
+    0 0 0 6px rgb(255 201 64 / 0.08),
+    0 6px 0 #0b0920;
 }
-.bits-packet-value {
+.bits-packet .pl {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.bits-packet .pn {
   font-family: var(--font-display);
-  font-size: clamp(22px, 5vw, 32px);
+  font-size: 40px;
   line-height: 1.05;
   color: var(--color-gold);
 }
-.bits-packet-binary {
-  font-size: 11px;
+.bits-packet .pb {
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 1.5px;
+  letter-spacing: 0.12em;
   color: var(--color-muted);
 }
-.bits-packet-grid {
-  width: 44px;
-  height: 44px;
+.bits-packet .pn-img {
+  width: 52px;
+  margin: 4px auto 0;
 }
-.bits-packet--danger {
+.bits-packet.danger {
   border-color: var(--color-danger);
 }
-.bits-packet--danger .bits-packet-value {
+.bits-packet.danger .pn {
   color: var(--color-danger);
 }
 @media (prefers-reduced-motion: no-preference) {
-  .bits-packet--danger {
+  .bits-packet.danger {
     animation: bits-throb 0.5s infinite alternate;
   }
 }
-.bits-packet--done {
+.bits-packet.done {
   border-color: var(--color-mint);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--color-mint) 45%, transparent);
+  box-shadow: 0 0 30px rgb(67 224 166 / 0.5);
 }
-.bits-packet--done .bits-packet-value,
-.bits-packet--done .bits-packet-binary {
+.bits-packet.done .pn,
+.bits-packet.done .pb {
   color: var(--color-mint);
 }
-.bits-packet--missed {
-  border-color: var(--color-cyan);
+
+.bits-mini {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1px;
 }
-.bits-packet--missed .bits-packet-value,
-.bits-packet--missed .bits-packet-binary {
-  color: var(--color-cyan);
+.bits-mini i {
+  aspect-ratio: 1;
+  border-radius: 1px;
+  background: var(--color-line);
 }
-@keyframes bits-throb {
-  to {
-    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-danger) 18%, transparent);
-  }
+.bits-mini i.on {
+  background: var(--color-gold);
 }
 
 .bits-cpu {
-  grid-area: cpu;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  width: 78px;
-  height: 78px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 104px;
+  height: 104px;
   border: 2px solid var(--color-line-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-panel-raised);
-  color: var(--color-muted);
+  border-radius: 16px;
+  background: var(--color-panel-selected);
+  text-align: center;
 }
-@media (min-width: 760px) {
-  .bits-cpu {
-    width: 96px;
-    height: 96px;
-  }
+.bits-cpu::before,
+.bits-cpu::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--color-line-strong) 0 6px,
+    transparent 6px 14px
+  );
 }
-.bits-cpu-icon {
-  width: 32px;
-  height: 32px;
+.bits-cpu::before {
+  top: -10px;
+}
+.bits-cpu::after {
+  bottom: -10px;
+}
+.bits-cpu .ic {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 4px;
+  border-radius: 10px;
+  background: var(--color-gold);
+  color: #1a1300;
+}
+.bits-cpu .ic svg {
+  width: 26px;
+  height: 26px;
 }
 .bits-cpu b {
   font-family: var(--font-display);
-  font-size: 11px;
-  letter-spacing: 1.5px;
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.1em;
 }
-@keyframes bits-cpu-hit {
-  30% {
-    transform: scale(1.12) rotate(-3deg);
-    border-color: var(--color-danger);
-    color: var(--color-danger);
-  }
-}
-.bits-cpu--hit {
-  animation: bits-cpu-hit 0.4s ease-in-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  .bits-cpu--hit {
-    animation: none;
-    border-color: var(--color-danger);
-    color: var(--color-danger);
-  }
+.bits-cpu.hit {
+  animation: bits-hit 0.4s;
 }
 
-/* ---------------------------------------------------------------------------
-   Tabela de código (fase de letras): fica parada ao lado/abaixo da placa.
-   --------------------------------------------------------------------------- */
+/* ---------- lâmpadas ---------- */
+.bits-bits {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 14px repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 800px;
+  margin: 6px auto 0;
+}
+.bits-bits.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: 420px;
+}
+.bits-cell {
+  display: flex;
+  min-width: 0;
+}
+.bits-bit {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+  min-height: 134px;
+  padding: 12px 4px 10px;
+  border: 2px solid var(--color-line-strong);
+  border-radius: 16px;
+  background: var(--color-panel-selected);
+  box-shadow: 0 6px 0 #0b0920;
+  transition:
+    transform 0.08s,
+    box-shadow 0.08s,
+    border-color 0.15s,
+    background 0.15s;
+}
+.bits-bit:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #0b0920;
+}
+.bits-bit:focus-visible {
+  outline: 3px solid var(--color-cyan);
+  outline-offset: 3px;
+}
+.bits-bit .key {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #5b54a0;
+}
+.bits-bit svg {
+  width: 40px;
+  height: 40px;
+  fill: none;
+  stroke: #8a83c4;
+  stroke-width: 1.6;
+  transition: all 0.15s;
+}
+.bits-bit .val {
+  min-height: 22px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--color-muted);
+}
+.bits-bit .dig {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: #6f68b0;
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+.bits-bit.on {
+  border-color: var(--color-gold);
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgb(255 201 64 / 0.28),
+    var(--color-panel-selected) 70%
+  );
+  box-shadow:
+    0 0 26px rgb(255 201 64 / 0.28),
+    0 6px 0 var(--color-gold-depth);
+}
+.bits-bit.on:active {
+  box-shadow:
+    0 0 26px rgb(255 201 64 / 0.28),
+    0 2px 0 var(--color-gold-depth);
+}
+.bits-bit.on svg {
+  stroke: var(--color-gold);
+  fill: rgb(255 201 64 / 0.55);
+}
+.bits-bit.on .val {
+  color: var(--color-gold);
+}
+.bits-bit.on .dig {
+  background: var(--color-gold);
+  color: #1a1300;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bits-bit.hint {
+    animation: bits-hintpulse 0.9s infinite;
+  }
+}
+.bits-bit.hint {
+  border-color: var(--color-cyan);
+}
+.bits-bit.win {
+  border-color: var(--color-mint);
+  box-shadow:
+    0 0 30px rgb(67 224 166 / 0.45),
+    0 6px 0 var(--color-mint-depth);
+}
+.bits-bit.win svg {
+  stroke: var(--color-mint);
+  fill: rgb(67 224 166 / 0.5);
+}
+.bits-bit.win .dig {
+  background: var(--color-mint);
+  color: #062a16;
+}
+.bits-bit.answer {
+  border-color: var(--color-cyan);
+  border-style: dashed;
+}
+.bits-bit.answer.on {
+  border-style: solid;
+  border-color: var(--color-cyan);
+  box-shadow:
+    0 0 26px rgb(61 224 255 / 0.35),
+    0 6px 0 var(--color-cyan-depth);
+}
+.bits-bit.answer.on svg {
+  stroke: var(--color-cyan);
+  fill: rgb(61 224 255 / 0.45);
+}
+.bits-bit.answer.on .dig {
+  background: var(--color-cyan);
+  color: #062229;
+}
+.bits-bit.answer.on .val,
+.bits-bits.peek .bits-bit .val {
+  color: var(--color-cyan);
+}
+
+/* grade 8x8 (Fase 5): 44px por célula, rolagem só dentro da caixa em telas estreitas */
+.bits-grid-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.bits-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(44px, 1fr));
+  gap: 4px;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+}
+.bits-px {
+  width: 100%;
+  min-height: 44px;
+  aspect-ratio: 1;
+  border: 2px solid var(--color-line-strong);
+  border-radius: 8px;
+  background: var(--color-panel-selected);
+  box-shadow: 0 3px 0 #0b0920;
+}
+.bits-px.on {
+  border-color: var(--color-gold);
+  background: var(--color-gold);
+  box-shadow: 0 0 12px rgb(255 201 64 / 0.3);
+}
+.bits-px.win {
+  border-color: var(--color-mint);
+  background: var(--color-mint);
+}
+.bits-px.answer {
+  border-style: dashed;
+  border-color: var(--color-cyan);
+}
+.bits-px.answer.on {
+  border-style: solid;
+  background: var(--color-cyan);
+}
+
 .bits-alphabet {
   text-align: center;
   color: var(--color-muted);
@@ -315,246 +565,326 @@
 }
 .bits-alphabet summary {
   cursor: pointer;
+  font-weight: 700;
 }
 .bits-alphabet ul {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
   display: grid;
   grid-template-columns: repeat(4, auto);
   justify-content: center;
-  gap: 4px 12px;
-}
-.bits-alphabet-current {
-  color: var(--color-gold);
-  font-weight: 700;
-}
-
-/* ---------------------------------------------------------------------------
-   Interruptores: acerto/erro tingem a fileira inteira por cima (os bits
-   mostrados já são a resposta certa, ver `BitsScene` `displayBits`).
-   --------------------------------------------------------------------------- */
-.bits-grid-wrap {
-  display: flex;
-  justify-content: center;
-}
-.bits-grid-wrap--matched .bit-switch--on {
-  border-color: var(--color-mint);
-  background: color-mix(in srgb, var(--color-mint) 22%, var(--color-panel-selected));
-  color: var(--color-mint);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--color-mint) 40%, transparent);
-}
-.bits-grid-wrap--missed .bit-switch--on {
-  border-color: var(--color-cyan);
-  background: color-mix(in srgb, var(--color-cyan) 22%, var(--color-panel-selected));
-  color: var(--color-cyan);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--color-cyan) 40%, transparent);
+  gap: 4px 16px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-/*
- * Grade 8x8 (Fase 5): cada célula é um BitSwitch de 44px mínimo, mesmo em
- * compact. Em telas muito estreitas (320px), 8 colunas de 44px (~373px) não
- * cabem sem rolagem: a página nunca rola na horizontal (proibido), mas esta
- * caixa pode, só ela, por dentro — risco já previsto no design doc.
- */
-.bits-grid-scroll {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.bits-grid {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(44px, 1fr));
-  gap: 3px;
-  max-width: 420px;
-  width: 100%;
-  margin: 0 auto;
-}
-.bits-grid--preview {
-  /* A pré-visualização do alvo é só decorativa (aria-hidden): sem alvo de
-     toque de 44px para respeitar, então as colunas podem encolher livre
-     (minmax(0,1fr)) até o `max-width` de 160px. Sem este override, ela
-     herdava `minmax(44px, 1fr)` de `.bits-grid` e vazava a tela (~373px),
-     mesmo com `max-width: 160px` — o mínimo de 44px por coluna vence o
-     max-width do container. */
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  max-width: 160px;
-  gap: 1px;
-}
-.bits-pixel {
-  aspect-ratio: 1;
-  border-radius: 2px;
-  background: var(--color-panel-raised);
-  border: 1px solid var(--color-line);
-}
-.bits-pixel--on {
-  background: var(--color-ink);
-}
-
-/* ---------------------------------------------------------------------------
-   Medidor de soma × alvo: mostra o quanto falta (ou passou) sem revelar o
-   valor de cada casa (a Fase 3 continua "sem cola").
-   --------------------------------------------------------------------------- */
+/* ---------- medidor ---------- */
 .bits-meter {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 560px;
+  gap: 12px;
   width: 100%;
+  max-width: 800px;
   margin: 0 auto;
 }
-.bits-meter-top {
+.bits-sumrow {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
 }
 .bits-sum {
-  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(18px, 4vw, 24px);
-  color: var(--color-ink);
+  font-size: 32px;
 }
 .bits-sum small {
-  font-size: 13px;
+  margin-left: 6px;
+  font-family: var(--font-body);
+  font-size: 16px;
   font-weight: 700;
+  letter-spacing: 0.06em;
   color: var(--color-muted);
-  margin-left: 4px;
 }
 .bits-status {
-  font-size: 13px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-raised);
+  padding: 6px 14px;
   border: 1.5px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-panel);
   color: var(--color-muted);
+  font-size: 15px;
+  font-weight: 700;
 }
-.bits-status--hit {
-  color: var(--color-mint);
-  border-color: color-mix(in srgb, var(--color-mint) 50%, transparent);
-  background: color-mix(in srgb, var(--color-mint) 14%, var(--color-panel-raised));
-}
-.bits-status--over {
+.bits-status.over {
   color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-panel-raised));
+  border-color: rgb(255 92 122 / 0.5);
+  background: #2b1121;
+}
+.bits-status.hit {
+  color: var(--color-mint);
+  border-color: rgb(67 224 166 / 0.5);
+  background: #0f2a1d;
 }
 .bits-gauge {
   position: relative;
-  height: 16px;
+  height: 20px;
+  border: 1.5px solid var(--color-line);
   border-radius: 999px;
   background: var(--color-bg);
-  border: 1.5px solid var(--color-line);
 }
-.bits-gauge-fill {
+.bits-gauge .fill {
   position: absolute;
-  inset: 0 auto 0 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
   border-radius: 999px;
   background: var(--color-cyan);
   transition: width 0.25s cubic-bezier(0.3, 1.4, 0.5, 1);
 }
-.bits-gauge-over {
+.bits-gauge .over {
   position: absolute;
   top: 0;
   bottom: 0;
   border-radius: 0 999px 999px 0;
-  background: repeating-linear-gradient(
-    45deg,
-    var(--color-danger) 0 6px,
-    color-mix(in srgb, var(--color-danger) 70%, black) 6px 12px
-  );
+  background: repeating-linear-gradient(45deg, var(--color-danger) 0 6px, #c23a58 6px 12px);
   transition:
     width 0.25s,
     left 0.25s;
 }
-.bits-gauge-mark {
+.bits-gauge .mark {
   position: absolute;
-  top: -8px;
-  bottom: -8px;
-  width: 3px;
-  margin-left: -1.5px;
-  background: var(--color-gold);
+  top: -10px;
+  bottom: -10px;
+  width: 4px;
+  margin-left: -2px;
   border-radius: 2px;
+  background: var(--color-gold);
   transition: left 0.4s;
 }
-.bits-gauge-mark span {
+.bits-gauge .mark span {
   position: absolute;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   margin-bottom: 2px;
-  background: var(--color-gold);
-  color: var(--color-ink);
-  font-family: var(--font-display);
-  font-size: 11px;
-  padding: 1px 6px;
+  padding: 1px 7px;
   border-radius: 6px;
+  background: var(--color-gold);
+  color: #1a1300;
+  font-family: var(--font-display);
+  font-size: 12px;
   white-space: nowrap;
 }
-.bits-gauge-ticks {
+.bits-ticks {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  margin-top: -6px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--color-muted);
+  color: #5b54a0;
 }
 
+/* ---------- ferramentas ---------- */
 .bits-tools {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 12px;
 }
 .bits-tool {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 44px;
+  gap: 8px;
+  height: 44px;
   padding: 0 16px;
   border: 1.5px solid var(--color-line-strong);
-  border-radius: var(--radius-sm);
-  background: var(--color-panel-raised);
+  border-radius: 12px;
+  background: var(--color-violet-deep, #2d2958);
+  box-shadow: 0 4px 0 #0f0d22;
   color: var(--color-ink);
   font-size: 14px;
   font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.bits-tool:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #0f0d22;
 }
 .bits-tool:disabled {
-  opacity: 0.45;
-  cursor: default;
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.bits-tool svg {
+  width: 18px;
+  height: 18px;
+}
+.bits-keys {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b64ad;
 }
 
-/* "+pontos" ao bater um alvo (juice): sobe e some sozinho, decorativo. */
-.bits-popups {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 0;
-  height: 0;
-  z-index: 1;
+/* ---------- efeitos ---------- */
+.bits-fx {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: hidden;
+  pointer-events: none;
 }
-.bits-popup {
+.bits-float {
   position: absolute;
-  left: 0;
   font-family: var(--font-display);
-  font-size: 20px;
-  color: var(--color-mint);
+  font-size: 22px;
   white-space: nowrap;
-  transform: translateX(-50%);
-  animation: bits-popup-rise 0.7s ease-out forwards;
+  transform: translate(-50%, -50%);
+  text-shadow: 0 3px 0 rgb(0 0 0 / 0.5);
 }
-@keyframes bits-popup-rise {
-  0% {
-    transform: translate(-50%, 0);
+.bits-part {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.bits-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  background: var(--color-danger);
+  opacity: 0;
+  pointer-events: none;
+}
+.bits-countdown {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgb(6 5 16 / 0.8);
+  backdrop-filter: blur(4px);
+}
+.bits-cd {
+  font-family: var(--font-display);
+  font-size: 160px;
+  line-height: 1;
+  color: var(--color-gold);
+  text-shadow: 0 8px 0 var(--color-gold-depth);
+  animation: bits-cdpop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes bits-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes bits-throb {
+  to {
+    box-shadow:
+      0 0 0 10px rgb(255 92 122 / 0.15),
+      0 6px 0 #0b0920;
+  }
+}
+@keyframes bits-hintpulse {
+  50% {
+    border-color: var(--color-cyan);
+    box-shadow:
+      0 0 24px rgb(61 224 255 / 0.4),
+      0 6px 0 #0b0920;
+  }
+}
+@keyframes bits-hit {
+  30% {
+    transform: scale(1.12) rotate(-4deg);
+    border-color: var(--color-danger);
+  }
+}
+@keyframes bits-cdpop {
+  from {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
     opacity: 1;
   }
-  100% {
-    transform: translate(-50%, -34px);
-    opacity: 0;
+}
+
+/* ---------- celular (≤640px no protótipo) ---------- */
+@media (max-width: 640px) {
+  .bits-field {
+    gap: 18px;
+    padding: 20px 12px 18px;
+    border-radius: 20px;
+  }
+  .bits-lane {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
+  .bits-queue {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+  .bits-track {
+    --pw: 108px;
+    height: 96px;
+  }
+  .bits-packet .pn {
+    font-size: 32px;
+  }
+  .bits-cpu {
+    width: 78px;
+    height: 78px;
+  }
+  .bits-cpu .ic {
+    width: 34px;
+    height: 34px;
+  }
+  .bits-bits {
+    gap: 5px;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) 4px repeat(4, minmax(0, 1fr));
+  }
+  .bits-bit {
+    min-height: 104px;
+    padding: 8px 2px;
+    border-radius: 12px;
+  }
+  .bits-bit svg {
+    width: 28px;
+    height: 28px;
+  }
+  .bits-bit .val {
+    font-size: 13px;
+  }
+  .bits-bit .dig {
+    width: 30px;
+    height: 30px;
+    font-size: 19px;
+  }
+  .bits-bit .key,
+  .bits-keys {
+    display: none;
+  }
+  .bits-sum {
+    font-size: 26px;
+  }
+  .bits-cd {
+    font-size: 120px;
+  }
+}
+/* Telas estreitas demais para 8 lâmpadas de 44px numa linha: 2 linhas de 4 (um nibble por linha). */
+@media (max-width: 479.98px) {
+  .bits-bits:not(.four) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    row-gap: 10px;
+  }
+  .bits-gap {
+    display: none;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .bits-popup {
+  .bits-cpu.hit,
+  .bits-cd {
     animation: none;
   }
 }

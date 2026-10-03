@@ -28,54 +28,49 @@ async function fontsReady(page: Page) {
   await page.evaluate(() => document.fonts.ready)
 }
 
-/** Quantos alvos cada fase pede na dificuldade normal (`targetCount`, sem ajuste). */
+/** Quantos pacotes cada fase tem (o plano em `src/games/bits/phases.ts`). */
 const TARGETS: Record<string, number> = {
   tutorial: 2,
-  'nivel-1': 6,
-  'nivel-2': 6,
+  'nivel-1': 5,
+  'nivel-2': 5,
   'nivel-3': 5,
   'nivel-4': 4,
   'nivel-5': 3,
 }
 
 /**
- * Lê os bits-alvo da fase atual na própria tela: o número-alvo (`.bits-packet-value`,
- * o pacote viajando até a CPU) convertido para bits, a linha da tabela de
- * código (fase de letras, que já mostra o binário) ou os pixels do
- * desenho-alvo (fase de imagem, miniatura dentro do pacote). Não depende de
- * nenhuma função interna do app — só do que já está na tela.
+ * Lê os bits-alvo do pacote atual na própria tela: o número (`.pn`), a letra
+ * (procurada na tabela de código, que mostra o binário) ou os pixels da
+ * miniatura do desenho. Não depende de nenhuma função interna do app.
  */
 async function getTargetBits(page: Page): Promise<number[]> {
-  const imageCount = await page.locator('.bits-packet-grid i').count()
-  if (imageCount > 0) {
-    return page
-      .locator('.bits-packet-grid i')
-      .evaluateAll((els) => els.map((el) => (el.classList.contains('on') ? 1 : 0)))
+  const pixels = page.locator('.bits-packet .pn-img i')
+  if ((await pixels.count()) > 0) {
+    return pixels.evaluateAll((els) => els.map((el) => (el.classList.contains('on') ? 1 : 0)))
   }
-
-  const alphabetCount = await page.locator('.bits-alphabet').count()
-  if (alphabetCount > 0) {
-    const letter = (await page.locator('.bits-packet-value').innerText()).trim()
-    // A tabela vive dentro de um <details> fechado por padrão: `innerText`
-    // respeita a renderização (ficaria vazio); `textContent` não.
+  const label = (await page.locator('.bits-packet .pn').innerText()).trim()
+  if ((await page.locator('.bits-alphabet').count()) > 0) {
+    // A tabela vive dentro de um <details> fechado: `textContent`, não `innerText`.
     const rows = await page
       .locator('.bits-alphabet li')
       .evaluateAll((els) => els.map((el) => el.textContent ?? ''))
-    const row = rows.find((r) => r.trim().startsWith(`${letter} =`))
-    if (!row) throw new Error(`letra-alvo "${letter}" não encontrada na tabela`)
+    const row = rows.find((r) => r.trim().startsWith(`${label} =`))
+    if (!row) throw new Error(`letra-alvo "${label}" não encontrada na tabela`)
     return row.split('=')[1]!.trim().replace(/\s+/g, '').split('').map(Number)
   }
-
-  const label = await page.locator('.bits-packet-value').innerText()
-  const value = Number(label.replace(/[^\d]/g, ''))
   const bitCount = await page.locator('.bits-field [data-bit]').count()
+  let v = Number(label)
   const bits: number[] = []
-  let v = value
   for (let i = bitCount - 1; i >= 0; i--) {
     bits[i] = v % 2
     v = Math.floor(v / 2)
   }
   return bits
+}
+
+/** Espera o pacote atual estar valendo (depois da contagem e das pausas de acerto/erro). */
+async function waitRunning(page: Page) {
+  await page.locator('[data-bits-state="running"]').waitFor({ timeout: 15_000 })
 }
 
 async function getCurrentBits(page: Page): Promise<number[]> {
@@ -116,16 +111,11 @@ async function matchCurrentTarget(page: Page) {
   }
 }
 
-/** Forma `targets` alvos seguidos, só tocando, até a fase terminar (vitória). */
+/** Decodifica `targets` pacotes seguidos, só tocando, até a fase terminar (vitória). */
 async function winPhase(page: Page, targets: number) {
   for (let i = 0; i < targets; i++) {
+    await waitRunning(page)
     await matchCurrentTarget(page)
-    // Depois de bater o alvo, a cena segura uma pausa de comemoração antes
-    // de liberar o próximo (ver `BitsScene` `MATCH_LOCK_MS`, 700ms reais
-    // divididos pela velocidade do teste — até 175ms no speed=4 mais lento
-    // usado aqui). 260ms cobre essa pausa com folga; menos que isso, a
-    // leitura do próximo alvo pega a fileira ainda travada na revelação.
-    await page.waitForTimeout(260)
   }
   await expect(page).toHaveURL(/resultado$/, { timeout: 15_000 })
 }
@@ -246,8 +236,7 @@ test.describe('jornada de Bits', () => {
   test('perder mostra dica e permite tentar sem tempo', async ({ page }) => {
     await seedProgress(page, 'bits', BITS_PHASES, 1)
     await startPhase(page, 'bits', 'nivel-1', 20)
-    // não joga: os alvos caem sem bater até zerar as 3 vidas (mais rápido
-    // que o relógio geral acabar, ver `logic/rules.ts` `missTarget`)
+    // não joga: três pacotes chegam à CPU sem ser decodificados
     await expect(page.getByRole('heading', { name: 'Sem vidas' })).toBeVisible({
       timeout: 30_000,
     })
@@ -268,9 +257,12 @@ test.describe('Bits pelo teclado', () => {
     // Sem relógio: a checagem de setas/foco consome tempo real antes de
     // resolver o primeiro alvo, e a fase tem alvos caindo quando cronometrada
     // (ver `logic/rules.ts` `missTarget`).
-    await seedProgress(page, 'bits', BITS_PHASES, 1, { untimed: true })
-    await startPhase(page, 'bits', 'nivel-1', 4)
+    // Nível 2: todo pacote acende 2+ lâmpadas, então um toque sozinho nunca
+    // decodifica (e trava) o pacote no meio da checagem do teclado.
+    await seedProgress(page, 'bits', BITS_PHASES, 2, { untimed: true })
+    await startPhase(page, 'bits', 'nivel-2', 4)
     await fontsReady(page)
+    await waitRunning(page)
 
     const first = page.locator('.bits-field [data-bit="0"] button[role="switch"]')
     await first.focus()
@@ -292,7 +284,7 @@ test.describe('Bits pelo teclado', () => {
     await expect(first).toBeFocused()
 
     // Joga a fase inteira só com Tab/Enter, resolvendo pelo texto do alvo.
-    await winPhase(page, TARGETS['nivel-1']!)
+    await winPhase(page, TARGETS['nivel-2']!)
     await expect(page).toHaveURL(/resultado$/)
   })
 })
