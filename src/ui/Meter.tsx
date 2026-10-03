@@ -32,15 +32,21 @@ export function Track({
   )
 }
 
-/** Pips de tarefas: um por tarefa, dourados quando feitos. */
+/**
+ * Pips de tarefas: um por tarefa, dourados quando feitos. `min-w-0` (em vez
+ * de uma largura mínima fixa) deixa cada pip encolher livremente quando
+ * `total` é grande (ex. 64 em "Do clique ao pixel"): com um piso fixo, 64
+ * pips mais os `gap`s somam bem mais que a largura do painel do HUD e
+ * vazam a tela, já que este é um `flex` sem quebra de linha.
+ */
 export function Pips({ total, done }: { total: number; done: number }) {
   return (
-    <div className="flex gap-[3px] roomy:gap-[5px]" aria-hidden="true">
+    <div className="flex gap-[3px] overflow-hidden roomy:gap-[5px]" aria-hidden="true">
       {Array.from({ length: total }, (_, i) => (
         <i
           key={i}
           className={cx(
-            'h-3 max-w-[22px] min-w-1 flex-1 rounded-[3px] roomy:h-6 roomy:rounded-xs roomy:shadow-[inset_0_-4px_0_rgb(0_0_0/0.25)]',
+            'h-3 max-w-[22px] min-w-0 flex-1 rounded-[3px] roomy:h-6 roomy:rounded-xs roomy:shadow-[inset_0_-4px_0_rgb(0_0_0/0.25)]',
             i < done ? 'bg-gold' : 'bg-line',
           )}
         />

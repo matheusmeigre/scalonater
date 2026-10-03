@@ -79,17 +79,19 @@ test.describe('mapa da placa-mãe', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'A placa-mãe' })).toBeVisible()
     await expect(page.locator('[data-station]')).toHaveCount(11)
     await expect(page.locator('[data-station="cores"]')).toHaveAttribute('data-status', 'available')
-    // "pixel" é a única estação da trilha ainda sem jogo implementado.
-    await expect(page.locator('[data-station="pixel"]')).toHaveAttribute('data-status', 'soon')
+    // "pixel" (Do clique ao pixel) exige as outras 10 estações concluídas; aqui só
+    // 7 foram seedadas, então ela continua bloqueada (todas as 11 estações já têm
+    // jogo implementado nesta build, então nenhuma estação fica "soon" de verdade).
+    await expect(page.locator('[data-station="pixel"]')).toHaveAttribute('data-status', 'locked')
     await expectNoHorizontalScroll(page)
     await expectTouchTargets(page)
   })
 
-  test('estação em construção explica em vez de abrir', async ({ page }) => {
+  test('estação bloqueada explica em vez de abrir', async ({ page }) => {
     await page.goto('/')
     await page.locator('[data-station="pixel"]').click()
     await expect(page).toHaveURL(/\/$/)
-    await expect(page.getByText('ainda está sendo construída')).toBeVisible()
+    await expect(page.getByText('Conclua as estações anteriores para liberar esta.')).toBeVisible()
   })
 })
 

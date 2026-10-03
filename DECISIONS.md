@@ -697,6 +697,80 @@ mas fica disponível para o Manual ou uma futura estação 12+.
   tela não anunciaria o que o botão faz. Registrado aqui para quem revisar `cores` depois, já
   que não é um arquivo desta estação.
 
+## Etapa 12 — Validação técnica
+
+Validação automatizada de fechamento (`docs/PLANEJAMENTO.md`, seção 3 "Onda 7" e seção 5),
+na branch `etapa-12-validacao-tecnica`. Cobriu só as partes automatizáveis (e2e completo,
+Lighthouse mobile, orçamento de bundle, PWA/offline, tipos/lint/testes/build); revisão de
+conteúdo ponta a ponta e testes em aparelho físico ficam para o dono do projeto.
+
+### Bugs reais corrigidos
+
+- **`src/ui/Meter.tsx` (`Pips`):** o componente de "tarefas" do HUD desenhava um `<i>` por
+  tarefa num `flex` sem quebra de linha, com `min-w-1` (4px) fixo por item. Em fases com `goal`
+  grande — "Do clique ao pixel" nivel-3 usa `goal = 64` — 64 pips × 4px + os `gap`s somavam bem
+  mais que a largura do painel do HUD e vazavam a página inteira (rolagem horizontal proibida
+  pela "Definição de pronto"), reproduzido em `iphone-se`, `small-phone-320` e `ipad` por
+  `e2e/layout.spec.ts` e `e2e/pixel.spec.ts`. Trocado `min-w-1` por `min-w-0` (os pips encolhem
+  de verdade para caber) e acrescentado `overflow-hidden` como rede de segurança. Como é um
+  componente compartilhado (`src/ui`), qualquer estação futura com `goal` grande herda a
+  correção.
+- **`e2e/app.spec.ts`:** os testes "mostra as estações…" e "estação em construção explica em vez
+  de abrir" assumiam que "pixel" (Do clique ao pixel) ainda não tinha jogo implementado e por
+  isso ficava com `data-status="soon"` — verdade quando o teste foi escrito, não mais: as 11
+  estações têm jogo nesta build, então nenhuma fica `soon` (`stationStatus`, em
+  `src/engine/phases/progression.ts`, só retorna `soon` quando o módulo do jogo não existe no
+  registro). Com os pré-requisitos seedados pelo teste (7 das 10 estações que "Do clique ao
+  pixel" exige), "pixel" fica `locked`, não `soon`. Teste e asserções atualizados para refletir
+  isso; o segundo teste foi renomeado para "estação bloqueada explica em vez de abrir" e passou
+  a checar a dica de bloqueio (`SHELL.map.lockedHint`) em vez da dica de "em construção".
+
+### Flakiness investigada (sem bug de produto)
+
+- `e2e/bits.spec.ts` → `winPhase`: em 2 das 4 rodadas completas da suíte (6 formatos × 12
+  specs em paralelo), um teste de Bits que usa `winPhase` falhou por timeout esperando
+  `/resultado$` — num formato/fase diferente a cada vez (`ipad`, depois `desktop` ×2, depois
+  `iphone-se`, depois `phone-landscape`). Isolado (`--repeat-each=3`, só aquele teste), passa
+  sempre. Causa provável: a pausa fixa de 80ms entre tocar no alvo atual e ler o próximo
+  (`matchCurrentTarget`) não é suficiente sob a carga de CPU da suíte inteira rodando em
+  paralelo nesta máquina de desenvolvimento (não um runner de CI dedicado); o React não
+  terminou de re-renderizar o próximo alvo a tempo, a leitura pega o alvo antigo e o último
+  toque da fase "some". Aumentada para 150ms (reduziu de 2 falhas para 1 em runs comparáveis,
+  mas não eliminou 100% sob paralelismo total); documentado aqui em vez de perseguir um número
+  "mágico" sem certeza da causa raiz. Não é um bug da aplicação: `typecheck`/`lint`/testes de
+  unidade/build seguem limpos, e isoladamente o teste é 100% estável.
+
+### Lighthouse mobile (local, `vite preview` + Chromium do Playwright, sem Chrome de sistema)
+
+| Rota          | Performance | Acessibilidade |
+| ------------- | ----------- | -------------- |
+| `/`           | 88–90\*     | 100            |
+| `/jogo/cores` | 89          | 100            |
+| `/jogo/bits`  | 90          | 100            |
+| `/jogo/pixel` | 89          | 100            |
+
+\* rodado 2× na home: 88 e depois 90, só trocando a rodada — variação de ~2 pontos entre runs
+na mesma máquina/build. Acessibilidade bate a meta (≥ 95) com folga em toda rota testada;
+Performance fica bem perto da meta (≥ 90), mas sem um runner de CI dedicado (sem Chrome de
+sistema aqui — usei o Chromium baixado pelo Playwright) os números têm ruído demais para
+afirmar "passou" ou "não passou" com confiança. TBT (10ms) e CLS (0) são excelentes; o que
+puxa a nota para baixo é FCP/Speed Index, consistente com ruído de máquina compartilhada, não
+com um problema estrutural do bundle (chunks de cena pequenos, service worker ativo). Pendência
+para o dono do projeto: repetir com `lighthouse-ci` (múltiplas rodadas, mediana) num runner
+dedicado antes de travar o número final.
+
+### Orçamento de bundle (`npm run build`)
+
+Maior chunk de cena: `CoresScene` com 10.17 kB gzip — bem dentro do limite de 60 kB gzip por
+cena (o próximo maior é `IoScene`, 4.82 kB gzip). Bundle principal `index-*.js`: 92.16 kB gzip —
+dentro do limite de 170 kB gzip. Sem pendência aqui.
+
+### PWA/offline
+
+`npm run build` gera `dist/sw.js` e `dist/workbox-*.js` (modo `generateSW`, 61 entradas no
+precache). `e2e/app.spec.ts` → "funciona offline depois do primeiro acesso" (só
+Chromium/desktop) passou em todas as rodadas completas da suíte.
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
