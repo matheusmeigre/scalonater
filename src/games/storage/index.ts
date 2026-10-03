@@ -21,7 +21,7 @@ export const storageGame = defineGame({
     icon: 'storage',
     hasDifficulty: false,
     hasAutoplay: false,
-    released: false,
+    released: true,
   },
   copy: COPY,
   phases: PHASES,
