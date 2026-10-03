@@ -133,6 +133,13 @@
   width: 100%;
 }
 .bits-grid--preview {
+  /* A pré-visualização do alvo é só decorativa (aria-hidden): sem alvo de
+     toque de 44px para respeitar, então as colunas podem encolher livre
+     (minmax(0,1fr)) até o `max-width` de 160px. Sem este override, ela
+     herdava `minmax(44px, 1fr)` de `.bits-grid` e vazava a tela (~373px),
+     mesmo com `max-width: 160px` — o mínimo de 44px por coluna vence o
+     max-width do container. */
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   max-width: 160px;
   gap: 1px;
 }

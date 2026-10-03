@@ -15,23 +15,26 @@ export const CACHE_PHASES = [
   'dois-niveis',
 ] as const
 
-/** Ids das fases de Bits e Memória — as duas estações anteriores a Cache na
- * trilha que já existem como jogo (Portas lógicas, ULA e Ciclo ainda não
- * existem e por isso são ignoradas pela regra "linear, com exceção"). */
+/** Ids das fases das estações anteriores a Cache na trilha, todas já
+ * implementadas nesta build (Bits, Portas lógicas, ULA, Memória e Ciclo da
+ * CPU — `engine/phases/progression.ts`). */
 const BITS_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5'] as const
+const GATES_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
+const ALU_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
 const MEMORY_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
+const CYCLE_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
 
 /**
  * `seedProgress` (helpers.ts) grava o progresso de só um jogo por vez
- * (substitui `scalonater:progress` inteiro). Cache depende de Bits **e**
- * Memória concluídos ("linear, com exceção"), então esta estação grava os
- * dois de uma vez, igual ao `seedProgress` genérico faria se aceitasse mais
- * de um jogo.
+ * (substitui `scalonater:progress` inteiro). Cache depende de todas as
+ * estações anteriores concluídas ("linear, com exceção"), então esta
+ * estação grava todas de uma vez, igual ao `seedProgress` genérico faria se
+ * aceitasse mais de um jogo.
  */
 async function seedCachePrereqs(page: Page) {
   await page.goto('/')
   await page.evaluate(
-    ({ bitsPhases, memoryPhases }) => {
+    ({ bitsPhases, gatesPhases, aluPhases, memoryPhases, cyclePhases }) => {
       const clearedOf = (ids: readonly string[]) =>
         Object.fromEntries(
           ids.map((id) => [id, { stars: 2, bestScore: 100, completedAt: '2026-10-01T00:00:00Z' }]),
@@ -42,7 +45,10 @@ async function seedCachePrereqs(page: Page) {
           version: 1,
           games: {
             bits: { openingSeen: true, phases: clearedOf(bitsPhases) },
+            gates: { openingSeen: true, phases: clearedOf(gatesPhases) },
+            alu: { openingSeen: true, phases: clearedOf(aluPhases) },
             memory: { openingSeen: true, phases: clearedOf(memoryPhases) },
+            cycle: { openingSeen: true, phases: clearedOf(cyclePhases) },
           },
           cards: [],
           unseenCards: [],
@@ -50,7 +56,13 @@ async function seedCachePrereqs(page: Page) {
       )
       localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
     },
-    { bitsPhases: BITS_PHASES, memoryPhases: MEMORY_PHASES },
+    {
+      bitsPhases: BITS_PHASES,
+      gatesPhases: GATES_PHASES,
+      aluPhases: ALU_PHASES,
+      memoryPhases: MEMORY_PHASES,
+      cyclePhases: CYCLE_PHASES,
+    },
   )
 }
 
@@ -108,12 +120,9 @@ test.describe('jornada do Cache', () => {
     await expect(page).toHaveURL(/\/jogo\/cache\/bancada-cheia\/resultado$/, { timeout: 10_000 })
     await expect(page.getByRole('heading', { name: 'Fase concluída!' })).toBeVisible()
     await expect(page.getByText('Card novo no Manual')).toBeVisible()
-    // Sem expectNoHorizontalScroll aqui: o painel "Próxima fase" do
-    // ResultScreen.tsx (base, fora do escopo desta estação) mostra o rótulo
-    // da próxima fase num `<b>` sem `min-w-0`/`break-words` dentro de um
-    // flex column — com "Fase 2 · Ele volta a pedir" ele vaza ~39px no
-    // iPhone SE. Ver DECISIONS.md, Etapa 6, "Pedidos à base" (mesmo padrão
-    // do bug já registrado pela Etapa 7 em GameHub.tsx).
+    // ResultScreen.tsx (base) agora tem `min-w-0`/`wrap-anywhere` no painel
+    // "Próxima fase" — ver DECISIONS.md, Etapa 6, "Pedidos à base" (corrigido).
+    await expectNoHorizontalScroll(page)
     await expectTouchTargets(page)
 
     // card de conceito abre no modal

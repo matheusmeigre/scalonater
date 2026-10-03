@@ -31,11 +31,11 @@ async function completeNivel1(page: Page) {
 }
 
 /**
- * O Ciclo da CPU vem depois de Bits e Memória na trilha (`engine/types.ts`,
- * `STATION_IDS`); Portas lógicas e ULA ainda não existem como jogo, então a
- * regra "linear, com exceção" os ignora e só exige Bits + Memória completos
- * para liberar a estação no mapa (`engine/phases/progression.ts`). O
- * `seedProgress` genérico só grava um jogo por vez, então aqui as duas
+ * O Ciclo da CPU vem depois de Bits, Portas lógicas, ULA e Memória na
+ * trilha (`engine/types.ts`, `STATION_IDS`), todas já implementadas nesta
+ * build, então a regra "linear, com exceção" exige as quatro completas para
+ * liberar a estação no mapa (`engine/phases/progression.ts`). O
+ * `seedProgress` genérico só grava um jogo por vez, então aqui as quatro
  * estações pré-requisito são marcadas completas diretamente.
  */
 async function seedPrerequisites(page: Page) {
@@ -53,6 +53,14 @@ async function seedPrerequisites(page: Page) {
           bits: {
             openingSeen: true,
             phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
+          },
+          gates: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          alu: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
           },
           memory: {
             openingSeen: true,

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   CORES_PHASES,
   expectInsideViewportWidth,
@@ -9,20 +9,85 @@ import {
   startPhase,
 } from './helpers'
 
+/**
+ * Marca como concluídas as estações que vêm antes do Núcleos na trilha
+ * "linear, com exceção" (Bits, Portas lógicas, ULA, Memória, Ciclo da CPU,
+ * Cache e Armazenamento, todas já implementadas nesta build —
+ * `engine/phases/progression.ts`). Quando este teste foi escrito, o Núcleos
+ * era a única estação implementada e por isso ficava liberada sem
+ * pré-requisito; hoje ela vem depois de sete outras estações na trilha.
+ */
+async function seedCoresPrerequisites(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    const done = (ids: string[]) =>
+      Object.fromEntries(
+        ids.map((id) => [id, { stars: 2, bestScore: 100, completedAt: '2026-10-01T00:00:00Z' }]),
+      )
+    localStorage.setItem(
+      'scalonater:progress',
+      JSON.stringify({
+        version: 1,
+        games: {
+          bits: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
+          },
+          gates: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          alu: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          memory: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cycle: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cache: {
+            openingSeen: true,
+            phases: done([
+              'tutorial',
+              'bancada-cheia',
+              'volta-a-pedir',
+              'vizinhos-de-linha',
+              'dois-niveis',
+            ]),
+          },
+          storage: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+        },
+        cards: [],
+        unseenCards: [],
+      }),
+    )
+    localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
+  })
+}
+
 test.describe('mapa da placa-mãe', () => {
   test('mostra as estações, libera o Núcleos e cabe na tela', async ({ page }) => {
+    await seedCoresPrerequisites(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'A placa-mãe' })).toBeVisible()
     await expect(page.locator('[data-station]')).toHaveCount(11)
     await expect(page.locator('[data-station="cores"]')).toHaveAttribute('data-status', 'available')
-    await expect(page.locator('[data-station="bits"]')).toHaveAttribute('data-status', 'soon')
+    // "pixel" é a única estação da trilha ainda sem jogo implementado.
+    await expect(page.locator('[data-station="pixel"]')).toHaveAttribute('data-status', 'soon')
     await expectNoHorizontalScroll(page)
     await expectTouchTargets(page)
   })
 
   test('estação em construção explica em vez de abrir', async ({ page }) => {
     await page.goto('/')
-    await page.locator('[data-station="bits"]').click()
+    await page.locator('[data-station="pixel"]').click()
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByText('ainda está sendo construída')).toBeVisible()
   })
@@ -30,11 +95,7 @@ test.describe('mapa da placa-mãe', () => {
 
 test.describe('jornada do Núcleos', () => {
   test('abertura do Kernel → tutorial → resultado com card → progresso salvo', async ({ page }) => {
-    await page.goto('/')
-    await page.evaluate(() => {
-      localStorage.clear()
-      localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
-    })
+    await seedCoresPrerequisites(page)
     await page.goto('/')
     await page.locator('[data-station="cores"]').click()
     await expect(page).toHaveURL(/\/jogo\/cores$/)

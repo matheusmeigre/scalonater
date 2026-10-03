@@ -12,10 +12,11 @@ export const NETWORK_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'niv
 
 /**
  * Marca como concluídas as estações que a trilha "linear, com exceção" exige
- * antes da Rede (todas as já implementadas nesta build: bits, memória,
- * armazenamento, núcleos e interrupções — ver `engine/phases/progression.ts`).
- * Só é preciso para abrir a estação a partir do mapa (`GameHub` redireciona
- * estações "locked"); a navegação direta por URL (`startPhase`) não checa
+ * antes da Rede (todas as já implementadas nesta build: bits, portas
+ * lógicas, ULA, memória, ciclo da CPU, cache, armazenamento, núcleos e
+ * interrupções — ver `engine/phases/progression.ts`). Só é preciso para
+ * abrir a estação a partir do mapa (`GameHub` redireciona estações
+ * "locked"); a navegação direta por URL (`startPhase`) não checa
  * pré-requisito de estação, só a fase anterior do próprio jogo.
  */
 async function seedPrerequisitesComplete(page: Page) {
@@ -34,9 +35,31 @@ async function seedPrerequisitesComplete(page: Page) {
             openingSeen: true,
             phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
           },
+          gates: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          alu: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
           memory: {
             openingSeen: true,
             phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cycle: {
+            openingSeen: true,
+            phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cache: {
+            openingSeen: true,
+            phases: done([
+              'tutorial',
+              'bancada-cheia',
+              'volta-a-pedir',
+              'vizinhos-de-linha',
+              'dois-niveis',
+            ]),
           },
           storage: {
             openingSeen: true,
@@ -94,14 +117,9 @@ test.describe('jornada da Rede', () => {
     await expect(page).toHaveURL(/\/jogo\/network\/tutorial\/resultado$/, { timeout: 10_000 })
     await expect(page.getByRole('heading', { name: 'Fase concluída!' })).toBeVisible()
     await expect(page.getByText('Card novo no Manual')).toBeVisible()
-    // Sem expectNoHorizontalScroll aqui: o painel "Próxima fase" do resultado
-    // (ResultScreen.tsx, base, fora do meu escopo) concatena o rótulo
-    // automático ("Fase 1") com `copy.phases['nivel-1'].title` (também "Fase
-    // 1" em toda estação, não só na Rede) sem permitir quebra de linha no
-    // <b class="font-display ...">, o que estoura a largura no iPhone SE
-    // (375px). Reproduzi o mesmo problema com `src/games/storage` (546px de
-    // scrollWidth), então não é algo introduzido por esta estação — ver
-    // DECISIONS.md, Etapa 10, "Pedidos à base".
+    // ResultScreen.tsx (base) agora tem `min-w-0`/`wrap-anywhere` no painel
+    // "Próxima fase" — ver DECISIONS.md, Etapa 10, "Pedidos à base" (corrigido).
+    await expectNoHorizontalScroll(page)
     await expectTouchTargets(page)
 
     // card de conceito (mesmo padrão de foco por teclado de e2e/storage.spec.ts,
