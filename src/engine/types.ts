@@ -149,6 +149,18 @@ export interface GameModule<P extends PhaseBase = PhaseBase> {
    * (engine/audio) no momento em que o módulo é carregado pelo registro.
    */
   sfx?: Record<string, (s: Synth) => void>
+  /**
+   * Versão "mini" de apresentação pura da cena, sem lógica de
+   * sessão/derrota/tempo — convenção para quem precisa só ilustrar a
+   * estação (ex.: o Manual) ou reaproveitar o visual numa jornada
+   * integradora (ex.: a estação `pixel`, ver
+   * `docs/design/clique-ao-pixel.md`, "Pedidos à base"). Recebe só
+   * `className`; qualquer estado/interatividade fica a cargo de quem
+   * precisar de controle fino importando o componente de apresentação
+   * extraído diretamente (ex.: `IoDevicePreview`, `ProcessorPreview`,
+   * `OpSelector`, `DiskGrid`), em vez deste wrapper de demonstração.
+   */
+  preview?: ComponentType<{ className?: string }>
 }
 
 /** Apaga o tipo específico da fase para o módulo caber no registro. */
