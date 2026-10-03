@@ -6,6 +6,7 @@ import { STATION_COPY } from '@/content/stations'
 import { audio } from '@/engine/audio/audioEngine'
 import { useSettings } from '@/engine/store/settingsStore'
 import type { StatTone } from '@/engine/types'
+import { TRAIL } from '@/games/catalog'
 import { getGame } from '@/games/registry'
 import { Button, ButtonLink } from '@/ui/Button'
 import { ConceptCardView } from '@/ui/ConceptCardView'
@@ -190,7 +191,11 @@ export function ResultScreen() {
               </Panel>
             ) : (
               <Panel className="flex flex-col gap-1.5 border-cyan px-5 py-[18px]">
-                <Label>{SHELL.result.connectionTitle}</Label>
+                <Label>
+                  {TRAIL[TRAIL.length - 1] === game.meta.id
+                    ? SHELL.result.journeyEndTitle
+                    : SHELL.result.connectionTitle}
+                </Label>
                 <RichText
                   as="p"
                   className="m-0 text-base leading-[1.4]"

@@ -142,6 +142,7 @@ export const SHELL = {
     cardUnlocked: 'Card novo no Manual',
     viewCard: 'Ver card',
     connectionTitle: 'Próxima estação',
+    journeyEndTitle: 'Fim da jornada',
     stationLit: 'Peça acesa na placa-mãe!',
     backToMap: 'Ver a placa-mãe',
     autoTitle: 'Viu só?',
