@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   expectInsideViewportWidth,
   expectNoHorizontalScroll,
@@ -9,6 +9,64 @@ import {
 
 /** Ids das fases do Armazenamento, na ordem da trilha do jogo. */
 export const STORAGE_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
+
+/**
+ * Marca como concluídas as estações que vêm antes do Armazenamento na
+ * trilha "linear, com exceção" (Bits, Portas lógicas, ULA, Memória, Ciclo
+ * da CPU e Cache, todas já implementadas nesta build —
+ * `engine/phases/progression.ts`). Sem isso, o Armazenamento aparece
+ * "locked" no mapa.
+ */
+async function seedPrerequisites(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    const complete = (ids: string[]) =>
+      Object.fromEntries(
+        ids.map((id) => [id, { stars: 2, bestScore: 100, completedAt: '2026-10-01T00:00:00Z' }]),
+      )
+    localStorage.setItem(
+      'scalonater:progress',
+      JSON.stringify({
+        version: 1,
+        games: {
+          bits: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
+          },
+          gates: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          alu: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          memory: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cycle: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          cache: {
+            openingSeen: true,
+            phases: complete([
+              'tutorial',
+              'bancada-cheia',
+              'volta-a-pedir',
+              'vizinhos-de-linha',
+              'dois-niveis',
+            ]),
+          },
+        },
+        cards: [],
+        unseenCards: [],
+      }),
+    )
+    localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
+  })
+}
 
 /** Toca em blocos livres, em ordem crescente de índice, até completar `count`. */
 async function tapFreeBlocks(page: import('@playwright/test').Page, count: number) {
@@ -21,11 +79,7 @@ test.describe('jornada do Armazenamento', () => {
   test('abertura do Kernel → tutorial → resultado com card → progresso salvo', async ({
     page,
   }) => {
-    await page.goto('/')
-    await page.evaluate(() => {
-      localStorage.clear()
-      localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
-    })
+    await seedPrerequisites(page)
     await page.goto('/')
     await page.locator('[data-station="storage"]').click()
     await expect(page).toHaveURL(/\/jogo\/storage$/)
@@ -35,11 +89,9 @@ test.describe('jornada do Armazenamento', () => {
     await page.getByRole('button', { name: 'Próximo' }).click()
     await page.getByRole('button', { name: 'Vamos lá!' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Armazenamento' })).toBeVisible()
-    // Sem expectNoHorizontalScroll aqui: o hub do jogo (GameHub.tsx, base,
-    // fora do escopo desta estação) deixa o título vazar ~10px no iPhone SE
-    // porque "Armazenamento" é uma palavra única mais longa que a de outras
-    // estações e o cabeçalho não tem `break-words`/`overflow-wrap`. Ver
-    // DECISIONS.md, Etapa 7, "Pedidos à base".
+    // GameHub.tsx (base) agora quebra o título com `wrap-anywhere` — ver
+    // DECISIONS.md, Etapa 7, "Pedidos à base" (corrigido).
+    await expectNoHorizontalScroll(page)
     await expectTouchTargets(page)
 
     // tutorial: salvar o arquivo A (3 blocos) tocando em blocos livres

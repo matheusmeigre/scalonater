@@ -11,6 +11,45 @@ import {
 const MEMORY_PHASES = ['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4'] as const
 
 /**
+ * Marca como concluídas as estações que vêm antes da Memória na trilha
+ * "linear, com exceção" (Bits, Portas lógicas e ULA, todas já implementadas
+ * nesta build — `engine/phases/progression.ts`). Sem isso, a Memória aparece
+ * "locked" no mapa e o clique em `[data-station="memory"]` não abre nada.
+ */
+async function seedPrerequisites(page: Page) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    const complete = (ids: string[]) =>
+      Object.fromEntries(
+        ids.map((id) => [id, { stars: 2, bestScore: 100, completedAt: '2026-10-01T00:00:00Z' }]),
+      )
+    localStorage.setItem(
+      'scalonater:progress',
+      JSON.stringify({
+        version: 1,
+        games: {
+          bits: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
+          },
+          gates: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+          alu: {
+            openingSeen: true,
+            phases: complete(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+          },
+        },
+        cards: [],
+        unseenCards: [],
+      }),
+    )
+    localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
+  })
+}
+
+/**
  * Lê o endereço pedido na ficha atual (via `aria-label`, que sempre contém
  * "gaveta N") e toca nela — tocando antes na ficha quando é um pedido de
  * GUARDAR. Devolve `false` quando não há mais pedido (fase acabou).
@@ -37,11 +76,7 @@ test.describe('jornada da Memória', () => {
   test('abertura do Kernel → tutorial → fase 1 → card no Manual → progresso salvo', async ({
     page,
   }) => {
-    await page.goto('/')
-    await page.evaluate(() => {
-      localStorage.clear()
-      localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
-    })
+    await seedPrerequisites(page)
     await page.goto('/')
     await page.locator('[data-station="memory"]').click()
     await expect(page).toHaveURL(/\/jogo\/memory$/)

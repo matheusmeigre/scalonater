@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import {
   CORES_PHASES,
   expectInsideViewportWidth,
@@ -23,6 +23,71 @@ export const IO_PHASES = [
   'dma',
 ] as const
 
+/**
+ * Marca como concluídas as estações que vêm antes de Interrupções e E/S na
+ * trilha "linear, com exceção" (Bits, Portas lógicas, ULA, Memória, Ciclo
+ * da CPU, Cache, Armazenamento e Núcleos, todas já implementadas nesta
+ * build — `engine/phases/progression.ts`).
+ */
+async function seedPrerequisites(page: Page) {
+  await page.goto('/')
+  await page.evaluate(
+    ({ coresPhases }: { coresPhases: readonly string[] }) => {
+      const done = (ids: readonly string[]) =>
+        Object.fromEntries(
+          ids.map((id) => [id, { stars: 2, bestScore: 100, completedAt: '2026-10-01T00:00:00Z' }]),
+        )
+      localStorage.setItem(
+        'scalonater:progress',
+        JSON.stringify({
+          version: 1,
+          games: {
+            bits: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4', 'nivel-5']),
+            },
+            gates: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+            },
+            alu: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+            },
+            memory: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+            },
+            cycle: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+            },
+            cache: {
+              openingSeen: true,
+              phases: done([
+                'tutorial',
+                'bancada-cheia',
+                'volta-a-pedir',
+                'vizinhos-de-linha',
+                'dois-niveis',
+              ]),
+            },
+            storage: {
+              openingSeen: true,
+              phases: done(['tutorial', 'nivel-1', 'nivel-2', 'nivel-3', 'nivel-4']),
+            },
+            cores: { openingSeen: true, phases: done(coresPhases) },
+          },
+          cards: [],
+          unseenCards: [],
+        }),
+      )
+      localStorage.setItem('scalonater:settings', JSON.stringify({ version: 1, muted: true }))
+    },
+    { coresPhases: CORES_PHASES },
+  )
+}
+
 /** Guarda o contexto e atende o dispositivo que está chamando (tocando). */
 async function guardAndAttend(page: import('@playwright/test').Page, device: string) {
   await expect(page.locator(`[data-device="${device}"][data-ringing="true"]`)).toBeVisible({
@@ -34,10 +99,10 @@ async function guardAndAttend(page: import('@playwright/test').Page, device: str
 
 test.describe('jornada de Interrupções e E/S', () => {
   test('abertura do Kernel → tutorial → resultado com card → progresso salvo', async ({ page }) => {
-    // io vem depois do Núcleos na trilha ("linear, com exceção",
-    // DECISIONS.md): precisa marcar o Núcleos como concluído para a
-    // estação deixar de aparecer como "em construção"/bloqueada no mapa.
-    await seedProgress(page, 'cores', CORES_PHASES, CORES_PHASES.length)
+    // io vem depois de várias estações na trilha ("linear, com exceção",
+    // DECISIONS.md): precisa marcar todas as anteriores já implementadas
+    // como concluídas para a estação deixar de aparecer bloqueada no mapa.
+    await seedPrerequisites(page)
     await page.goto('/jogo/io')
     await expect(page).toHaveURL(/\/jogo\/io$/)
 
