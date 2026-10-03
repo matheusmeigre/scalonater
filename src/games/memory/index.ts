@@ -6,7 +6,7 @@ import { PHASES } from './phases'
 
 /** Minigame "Memória": o jogador atende pedidos de guardar e ler numa estante de gavetas. */
 export const memoryGame = defineGame({
-  meta: { id: 'memory', icon: 'memory', hasDifficulty: false, hasAutoplay: false, released: false },
+  meta: { id: 'memory', icon: 'memory', hasDifficulty: false, hasAutoplay: false, released: true },
   copy: COPY,
   phases: PHASES,
   cards: CARDS,
