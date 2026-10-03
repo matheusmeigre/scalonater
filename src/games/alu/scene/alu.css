@@ -1,0 +1,210 @@
+/* Layout da partida da ULA (design doc `alu`, "Layout mobile e desktop"):
+   celular em pé empilha nível → controles → stats → campo → narrador;
+   desktop e tablet deitado dão mais respiro ao campo central. */
+.alu-layout {
+  display: grid;
+  width: 100%;
+  max-width: 980px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 820px) {
+  .alu-layout {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+
+.alu-manual,
+.alu-circuit,
+.alu-select {
+  grid-area: field;
+}
+
+/* --- Modo manual (tutorial, Fase 1): soma coluna a coluna, com o vai-um. --- */
+.alu-manual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+}
+.alu-manual-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.alu-manual-label {
+  width: 20px;
+  flex: none;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+.alu-manual-digit {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-panel);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.alu-carry-chip {
+  display: flex;
+  width: 36px;
+  height: 18px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-left: 20px;
+  border-radius: 6px;
+  color: var(--color-gold);
+  font-size: 12px;
+  font-weight: 700;
+}
+.alu-carry-chip[data-on='true'] {
+  background: color-mix(in srgb, var(--color-gold) 20%, transparent);
+}
+.alu-manual-rule {
+  width: 100%;
+  max-width: 260px;
+  border-top: 3px solid var(--color-line-strong);
+}
+.alu-manual-answer {
+  margin-top: 4px;
+}
+.alu-manual-caption {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+@keyframes alu-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+.alu-shake {
+  animation: alu-shake 0.3s ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .alu-shake {
+    animation: none;
+  }
+}
+
+/* --- Modo circuito (Fases 2-3): reaproveita shared/circuit. --- */
+.alu-circuit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 12px;
+}
+.alu-circuit-inputs {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.alu-circuit-inputs > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.alu-circuit-input-label {
+  font-size: 12px;
+  color: var(--color-muted);
+}
+.alu-circuit-slots {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.alu-circuit-outputs {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.alu-lamp {
+  display: flex;
+  min-width: 70px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--color-panel);
+  color: var(--color-line-strong);
+  font-size: 12px;
+  text-align: center;
+}
+.alu-lamp[data-on='true'] {
+  color: var(--color-gold);
+  background: color-mix(in srgb, var(--color-gold) 18%, var(--color-panel));
+}
+.alu-circuit-stock-pieces {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* --- Modo seletor (Fase 4): calculado direto com shared/binary. --- */
+.alu-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  text-align: center;
+}
+.alu-select-prompt {
+  margin: 0;
+  font-size: 15px;
+}
+.alu-select-operands {
+  display: flex;
+  gap: 16px;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+.alu-select-ops {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.alu-select-preview {
+  margin: 0;
+  color: var(--color-gold);
+  font-family: var(--font-display);
+  font-size: 18px;
+}
