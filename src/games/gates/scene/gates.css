@@ -1,0 +1,102 @@
+/* Layout da partida de Portas lógicas (design doc `gates`, "Layout mobile e
+   desktop"): celular em pé empilha tabela → circuito → estoque; desktop e
+   tablet deitado usam três colunas dentro do campo do GameFrame. */
+.gates-layout {
+  display: grid;
+  width: 100%;
+  max-width: 980px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'table'
+    'circuit'
+    'stock'
+    'nar';
+}
+@media (min-width: 820px) {
+  .gates-layout {
+    grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level level ctrl'
+      'stats stats stats'
+      'table circuit stock'
+      'nar nar nar';
+  }
+}
+
+.gates-table {
+  grid-area: table;
+}
+.gates-table-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.gates-table-grid th,
+.gates-table-grid td {
+  border: 1px solid var(--color-line);
+  padding: 4px 8px;
+  text-align: center;
+}
+.gates-table-grid th {
+  color: var(--color-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 11px;
+}
+.gates-table-target {
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.gates-circuit {
+  grid-area: circuit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+.gates-circuit-inputs {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.gates-circuit-slots {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.gates-lamp {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-line-strong);
+}
+.gates-lamp[data-on='true'] {
+  color: var(--color-gold);
+}
+.gates-lamp svg {
+  width: 32px;
+  height: 32px;
+}
+
+.gates-stock {
+  grid-area: stock;
+}
+.gates-stock-pieces {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
