@@ -601,6 +601,102 @@ misturados com `SlotNode`s) cobriu tudo que o design doc previa.
 - Validação e2e completa (6 formatos × CI) fica para a fase de testes do orquestrador, como
   pedido — só rodei `e2e/alu.spec.ts` localmente (3 testes × 6 projetos, todos verdes).
 
+## Etapa 11 — Do clique ao pixel
+
+Estação `pixel`: a jornada integradora final, em 4 capítulos (Entrada, Decisão, Dados, Saída)
+que reaproveitam a versão mini da cena de cada uma das dez estações anteriores. Design doc:
+`docs/design/clique-ao-pixel.md` (seguido sem alterações de mecânica).
+
+### Combinada antes de começar
+
+- **Relógio nas Fases 1-2 (combinado, pergunta aberta do design doc):** as fases 1-2 (Entrada,
+  Decisão) têm relógio/derrota leve, consistente com as outras 10 estações; só a Fase 3
+  (Saída/pixels) é sem tempo, puramente celebratória. Implementado como
+  `secondsLimit: 60` nas fases `nivel-1`/`nivel-2` e `secondsLimit: 0` no `tutorial`/`nivel-3`
+  (sem relógio e sem `useGameLoop` rodando nessas duas).
+
+### Suposições
+
+- **Pré-requisito "todas as 10 anteriores" via `GameMeta.prerequisites` (mecanismo já
+  existente, sem mudança de base):** `effectivePrerequisites`
+  (`src/engine/phases/progression.ts`) já aceita uma lista explícita de pré-requisitos por
+  estação, em vez de só "a trilha até aqui". `src/games/pixel/index.ts` declara
+  `prerequisites: ['bits', 'gates', 'alu', 'memory', 'cycle', 'cache', 'storage', 'cores', 'io',
+  'network']` — as 10 outras estações, não só a imediatamente anterior na trilha (`network`).
+  Como a Etapa 0.5 (base) já previu exatamente esse caso de uso no tipo `GameMeta`, **não foi
+  necessário nenhum pedido à base nem mecanismo novo** para esta regra especial de liberação.
+- **Os 4 pedidos à base do design doc já vinham resolvidos:** o commit-base desta etapa
+  ("Base: componentes de preview para a Etapa 11") já trazia `IoDevicePreview`, `ProcessorPreview`,
+  `OpSelector` e `DiskGrid` prontos, exatamente como pedidos no design doc. Esta estação só
+  importa e reaproveita esses componentes (mais `Registers`/`CacheSlots` de `cycle`/`cache`,
+  que já eram diretamente reusáveis) — nenhuma estação de origem foi editada.
+- **`CacheSlots` e `DiskGrid` não importam a própria folha de estilo** (`cache.css`/
+  `storage.css` só são importadas pelas cenas de verdade daquelas estações). Como `pixel` usa
+  esses componentes fora da cena de origem, `src/games/pixel/scene/PixelScene.tsx` importa
+  `@/games/cache/scene/cache.css` e `@/games/storage/scene/storage.css` diretamente (efeito
+  colateral de importação, sem duplicar nenhum CSS) — sem isso, os blocos/espaços ficariam sem
+  estilo visual no bundle code-split desta estação.
+- **Microtarefas simplificadas para "sempre uma solução" (conforme o design doc):**
+  `scheduleThread` (mini-`cores`) tem 1 núcleo/1 encaixe; `runCycleStep` (mini-`cycle`) é só
+  "Buscar → Decodificar → Executar" num botão único (sem 3 caixas separadas, igual à extensão já
+  documentada no design doc para esta estação); `resolveCacheStep` usa o mesmo endereço fixo duas
+  vezes (1 falha + 1 acerto, localidade temporal) num cache de 1 espaço; `readDiskBlocks` lê 3
+  blocos fixos (`diskSequence: [2, 5, 7]`) sem simular fragmentação.
+- **Operandos fixos da mini-ULA (`5 + 3`, 8 bits):** o design doc não fixa os números da
+  Fase 1; usei valores fixos e pequenos (sem sorteio) para o `computeAluOp` importado de `alu`
+  continuar determinístico e fácil de testar (`selectAluOp` confere `op === 'add'` e delega o
+  cálculo para a função pura da estação `alu`, sem copiar lógica).
+- **Imagem-alvo da Fase 3 = a carinha (primeira imagem) de `IMAGES` em `src/games/bits/phases.ts`**
+  ("fecha o círculo" com a mesma imagem que o jogador desenhou na Fase 5 de Bits, decisão
+  deixada em aberto no design doc). `prefilledCount: 48` dos 64 bits; os 16 bits restantes (dois
+  terços da carinha: boca e parte do queixo) ficam para o jogador completar. É só leitura de dado
+  (`BitsPhase.images`), não um componente — não precisou de pedido à base, como o próprio design
+  doc já observava.
+- **Pontuação inventada:** o design doc não detalha números de pontos para esta estação.
+  `registerHit(scoring, 20, 5)` por passo confirmado (Fases 1-2), `10`/`25` por falha/acerto na
+  mini-cache, `15` por bloco de disco lido, `50` por completar a imagem da Fase 3.
+- **Sem dificuldade nem modo automático:** `hasDifficulty: false`, `hasAutoplay: false` — o
+  design doc não descreve nenhum dos dois para esta estação (mesmo padrão de
+  Armazenamento/Cache/Rede).
+- **`released: true`** por instrução explícita desta tarefa (publicar ao mergear) — igual ao
+  combinado para as outras 10 estações nas etapas anteriores.
+
+### Bug encontrado e corrigido durante a implementação
+
+- **Loop infinito de renderização em `useTutorialSteps`:** o hook compara a lista de `steps`
+  por referência para saber quando reiniciar o tutorial. A primeira versão desta cena chamava
+  `useTutorialSteps(phase.tutorial ?? [])`; como `phase.tutorial` é `undefined` nas fases
+  `nivel-1` a `nivel-3` (só o `tutorial` tem etapas guiadas), o `?? []` criava um array novo a
+  cada render, fazendo o hook pensar que as etapas sempre mudaram e disparando "Too many
+  re-renders" (só visível com o build de produção; o Vitest/jsdom não reproduz, só o Playwright
+  contra o `vite preview` real). Corrigido com uma constante `NO_TUTORIAL_STEPS` estável fora do
+  componente. Registrado aqui porque é um risco genérico para **qualquer** jogo futuro que passe
+  `campo-opcional ?? []`/`?? {}` para um hook que compara por referência — vale considerar, no
+  próprio `useTutorialSteps`, aceitar `undefined` diretamente (usando uma constante interna) em
+  vez de pedir que cada jogo lembre desse cuidado.
+
+### Pedidos à base
+
+Nenhum novo. Os 4 pedidos do design doc (`IoDevicePreview`, `ProcessorPreview`, `OpSelector`,
+`DiskGrid`) já estavam resolvidos antes desta etapa começar (commit-base "Base: componentes de
+preview para a Etapa 11"). O pedido estrutural nº 5 do design doc (`Preview?: ComponentType` no
+`GameModule`) também já existe em `src/engine/types.ts` — não foi usado por esta estação (que
+importa os componentes de apresentação diretamente, com controle fino sobre cada microtarefa),
+mas fica disponível para o Manual ou uma futura estação 12+.
+
+### Pendências
+
+- Números calibrados à mão (operandos da ULA, endereço fixo da cache, blocos do disco, limiar de
+  tempo de 60s nas Fases 1-2, limiares de estrela), sem playtest humano — mesma ressalva já
+  registrada por outras estações.
+- Validação e2e completa (6 formatos × CI) fica para a fase de testes do orquestrador; só rodei
+  `e2e/pixel.spec.ts` localmente no projeto `desktop` (5 testes, todos verdes).
+- `ProcessorPreview` (componente de apresentação de `cores`, fora do meu escopo de edição) não
+  dá nome acessível ao encaixe vazio do núcleo (`SlotViewPreview`, botão só com um ícone "+" sem
+  `aria-label`) — funciona por seletor (`data-slot`/`data-filled`) nos testes, mas um leitor de
+  tela não anunciaria o que o botão faz. Registrado aqui para quem revisar `cores` depois, já
+  que não é um arquivo desta estação.
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:

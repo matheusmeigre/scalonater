@@ -1,0 +1,123 @@
+/* ---------------------------------------------------------------------------
+   Layout da cena "Do clique ao pixel" (design doc, "Layout mobile e
+   desktop"): celular em pé empilha os passos do capítulo e só o atual é
+   interativo; desktop/tablet deitado mostra os passos lado a lado.
+   --------------------------------------------------------------------------- */
+.pixel-layout {
+  display: grid;
+  width: 100%;
+  max-width: 1000px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) {
+  .pixel-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+
+.pixel-field {
+  grid-area: field;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 10px;
+}
+
+.pixel-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+@media (min-width: 760px) {
+  .pixel-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.pixel-step {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  opacity: 1;
+  transition: opacity 0.2s, border-color 0.2s;
+}
+.pixel-step.is-pending {
+  opacity: 0.5;
+}
+.pixel-step.is-done {
+  opacity: 0.7;
+  border-color: var(--color-mint);
+}
+.pixel-step.is-current {
+  border-color: var(--color-cyan);
+  background: var(--color-panel-selected);
+}
+
+.pixel-tutorial-field,
+.pixel-core-field,
+.pixel-cycle-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.pixel-tutorial-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.pixel-core-grid {
+  width: 100%;
+  max-width: 220px;
+}
+
+.pixel-cycle-label {
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Grade 8x8 de pixels (Fase 3, Saída) — mesmo padrão de `.bits-grid`. */
+.pixel-grid-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pixel-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(44px, 1fr));
+  gap: 3px;
+  max-width: 420px;
+  width: 100%;
+  margin: 0 auto;
+}
