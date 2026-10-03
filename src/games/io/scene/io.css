@@ -1,0 +1,208 @@
+/* Layout da estação Interrupções e E/S. GameFrame exige as áreas "level",
+   "stats", "ctrl" e "nar"; o campo de jogo (áreas "task"/"stack"/"devices"
+   ou as variações de F3/F4) é todo nosso. */
+.io-layout {
+  display: grid;
+  width: 100%;
+  max-width: 900px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) {
+  .io-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+
+/* --- tutorial, F1, F2 --- */
+.io-field {
+  grid-area: field;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'task' 'stack' 'devices';
+  align-content: start;
+}
+@media (min-width: 760px) {
+  .io-field {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+    grid-template-areas: 'task task' 'stack devices';
+  }
+}
+/* celular deitado: pilha e dispositivos lado a lado, para caber em ~375px de altura */
+@media (max-width: 839.98px) and (orientation: landscape) {
+  .io-field {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: 'task task' 'stack devices';
+  }
+}
+
+.io-task {
+  grid-area: task;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 12px;
+}
+.io-stack {
+  grid-area: stack;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 12px;
+}
+.io-stack[data-highlight='true'],
+.io-devices[data-highlight='true'] {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px var(--color-gold-depth);
+}
+.io-chip {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: var(--color-panel-selected);
+  border: 2px solid var(--color-gold);
+  color: var(--color-gold);
+  font-weight: 700;
+  padding: 4px 12px;
+}
+.io-devices {
+  grid-area: devices;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 12px;
+}
+.io-device-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.io-device {
+  display: flex;
+  min-height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  padding: 6px;
+}
+.io-device:disabled {
+  opacity: 0.55;
+}
+.io-device-ringing {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+  animation: io-blink 0.9s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .io-device-ringing {
+    animation: none;
+  }
+}
+.io-device-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.io-device-patience {
+  width: 100%;
+  margin-top: 2px;
+}
+@keyframes io-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-gold-depth);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--color-gold-depth);
+  }
+}
+
+/* --- F3: polling × interrupção --- */
+.io-compare {
+  grid-area: field;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+}
+@media (min-width: 640px) {
+  .io-compare {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.io-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 14px;
+}
+
+/* --- F4: DMA --- */
+.io-dma {
+  grid-area: field;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-content: start;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 16px;
+  max-width: 480px;
+}
+
+/* --- botões simples (sem variante dedicada em ui/Button, só texto + volume) --- */
+.io-btn {
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 8px 18px;
+}
+.io-btn:disabled {
+  opacity: 0.5;
+}
+.io-btn-gold {
+  background: var(--color-gold);
+  color: var(--color-on-accent);
+  border-color: var(--color-gold-depth);
+}
+.io-btn-ghost {
+  background: var(--color-line);
+  color: var(--color-ink);
+}
