@@ -1,0 +1,102 @@
+/* ---------------------------------------------------------------------------
+   Layout da cena da Memória.
+   - celular em pé: HUD, ficha do pedido, estante (2 colunas), Kernel;
+   - celular deitado / tablet deitado / desktop: ficha à esquerda, estante à direita.
+   --------------------------------------------------------------------------- */
+.memory-layout {
+  display: grid;
+  width: 100%;
+  max-width: 1100px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level ctrl'
+    'stats stats'
+    'ticket ticket'
+    'shelf shelf'
+    'nar nar';
+}
+@media (min-width: 760px) and (min-height: 521px) {
+  .memory-layout {
+    gap: 12px;
+  }
+}
+@media (orientation: landscape) and (max-height: 520px), (min-width: 1024px) and (min-height: 600px) {
+  .memory-layout {
+    height: 100dvh;
+    min-height: 0;
+    grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'level stats'
+      'ticket shelf'
+      'nar shelf'
+      'ctrl shelf';
+  }
+}
+
+.memory-ticket {
+  grid-area: ticket;
+  display: flex;
+  min-height: 56px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  text-align: left;
+}
+.memory-ticket[aria-pressed='true'] {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}
+.memory-ticket-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--color-cyan);
+}
+.memory-ticket-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.memory-ticket-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-orange);
+  color: var(--color-on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.memory-shelf-wrap {
+  grid-area: shelf;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-content: start;
+  overflow: auto;
+}
+
+[data-highlight='true'] {
+  outline: 3px solid var(--color-gold);
+  outline-offset: 3px;
+  animation: memory-tutorial-glow 1.4s ease-in-out infinite;
+}
+@keyframes memory-tutorial-glow {
+  50% {
+    outline-color: rgb(255 201 64 / 0.35);
+  }
+}
