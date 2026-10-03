@@ -19,7 +19,7 @@ export const bitsGame = defineGame({
     hasAutoplay: false,
     // Novas estações entram com `released: false` (definição de pronto,
     // docs/PLANEJAMENTO.md seção 5); o dono do projeto decide quando liberar.
-    released: false,
+    released: true,
   },
   copy: COPY,
   phases: PHASES,
