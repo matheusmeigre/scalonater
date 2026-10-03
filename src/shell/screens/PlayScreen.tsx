@@ -71,7 +71,7 @@ function PhaseIntro({
       </h2>
       <div className="flex flex-col gap-3 text-[#DAD7F2]">
         {pc.intro.map((t) => (
-          <RichText key={t} as="p" className="m-0" text={t} />
+          <RichText key={t} as="p" className="m-0" text={fill(t, values)} />
         ))}
       </div>
       <h3 className="mt-5 mb-2 text-[15px] tracking-[2px] text-cyan uppercase">
@@ -79,7 +79,7 @@ function PhaseIntro({
       </h3>
       <ul className="m-0 flex flex-col gap-1.5 pl-5 text-[#DAD7F2]">
         {pc.bullets.map((b) => (
-          <RichText key={b} as="li" text={b} />
+          <RichText key={b} as="li" text={fill(b, values)} />
         ))}
       </ul>
       <RichText as="p" className="mt-4 mb-0 font-semibold" text={`**${fill(goal, values)}**`} />

@@ -66,6 +66,8 @@ export const COPY: GameCopy = {
       bulletsTitle: 'Objetivo',
       bullets: ['Complete {goal} operações no HD com tempo total dentro do limite.'],
       goal: 'Complete {goal} operações, tempo total até {time}',
+      goalUntimed:
+        'Complete {goal} operações, tempo total até {time}. Sem relógio: só o custo do disco conta.',
       real: 'Um SSD consegue ser 10 a 100 vezes mais rápido que um HD em acessos espalhados.',
       learn: 'No HD, blocos distantes custam mais tempo; no SSD, a posição não importa.',
       tip: 'No HD, a cabeça de leitura precisa se deslocar até cada bloco — quanto mais longe e mais espalhado, mais tempo custa. Tenta deixar os blocos de um arquivo próximos.',
@@ -81,6 +83,8 @@ export const COPY: GameCopy = {
         'Use "Desfragmentar" ao menos 1 vez e complete {goal} operações no HD com tempo total até {time}.',
       ],
       goal: 'Desfragmente e complete {goal} operações, tempo total até {time}',
+      goalUntimed:
+        'Desfragmente e complete {goal} operações, tempo total até {time}. Sem relógio: só o custo do disco conta.',
       real: 'Desfragmentar foi manutenção comum em HDs antigos; em SSDs quase não ajuda.',
       learn: 'Desfragmentar reorganiza os arquivos, sem criar espaço novo nem mudar o conteúdo.',
       tip: 'Desfragmentar junta os pedaços espalhados lá no início do disco — depois disso, a cabeça de leitura anda bem menos.',
