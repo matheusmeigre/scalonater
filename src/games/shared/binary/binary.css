@@ -1,0 +1,81 @@
+/* Interruptor e fileira de bits (shared/binary). Alvo de toque sempre
+   44x44px ou mais; o estado nunca é só cor (lâmpada + "0"/"1"). */
+.bit-switch-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.bit-switch {
+  display: flex;
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  max-width: 68px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-muted);
+  padding: 6px 4px;
+  cursor: pointer;
+}
+.bit-switch:focus-visible {
+  outline: 3px solid var(--color-cyan);
+  outline-offset: 2px;
+}
+.bit-switch--on {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+  color: var(--color-gold);
+}
+.bit-switch:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.bit-switch-bulb {
+  width: 22px;
+  height: 22px;
+}
+.bit-switch-value {
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1;
+}
+.bit-switch-place {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-muted);
+}
+.bit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.bit-row-item {
+  display: flex;
+}
+@media (min-width: 760px) and (min-height: 521px) {
+  .bit-switch {
+    min-height: 56px;
+    max-width: 76px;
+    gap: 4px;
+  }
+  .bit-switch-bulb {
+    width: 28px;
+    height: 28px;
+  }
+  .bit-switch-value {
+    font-size: 16px;
+  }
+  .bit-switch-place {
+    font-size: 13px;
+  }
+  .bit-row {
+    gap: 10px;
+  }
+}
