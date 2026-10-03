@@ -2,6 +2,7 @@ import { lazy } from 'react'
 import { defineGame } from '@/engine/types'
 import { CARDS, COPY } from './content'
 import { PHASES } from './phases'
+import { DiskGridDemo } from './scene/DiskGridDemo'
 
 /**
  * Armazenamento (README, "Como criar um novo minigame"): um disco em grade
@@ -28,6 +29,7 @@ export const storageGame = defineGame({
   cards: CARDS,
   Scene: lazy(() => import('./scene/StorageScene')),
   goalValues: (phase) => ({ goal: phase.operations.length, time: phase.maxTotalTime ?? 0 }),
+  preview: DiskGridDemo,
 })
 
 export default storageGame

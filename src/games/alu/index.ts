@@ -4,6 +4,7 @@ import { CARDS, COPY } from './content'
 import { CARRY_ICON } from './icons'
 import { resolveTime } from './logic/rules'
 import { PHASES } from './phases'
+import { OpSelectorDemo } from './scene/OpSelectorDemo'
 
 /**
  * Minigame "A calculadora (ULA)" (`alu`): o jogador soma binário à mão
@@ -40,6 +41,7 @@ export const aluGame = defineGame({
     // Usado pelo card de conceito "Vai-um (carry)". "alu" já existe em ui/icons.
     carry: { node: CARRY_ICON },
   },
+  preview: OpSelectorDemo,
 })
 
 export default aluGame

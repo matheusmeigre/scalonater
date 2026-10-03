@@ -3,6 +3,7 @@ import { defineGame } from '@/engine/types'
 import { CARDS, COPY } from './content'
 import { resolveConfig } from './logic/model'
 import { PHASES } from './phases'
+import { ProcessorPreviewDemo } from './scene/ProcessorPreviewDemo'
 
 /** Minigame "Núcleos": o jogador é o escalonador do sistema operacional. */
 export const coresGame = defineGame({
@@ -15,6 +16,7 @@ export const coresGame = defineGame({
     const c = resolveConfig(phase, o)
     return { goal: c.goal, time: c.duration, hearts: c.hearts }
   },
+  preview: ProcessorPreviewDemo,
 })
 
 export default coresGame

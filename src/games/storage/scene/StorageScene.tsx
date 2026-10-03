@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { advanceTutorialStep } from '@/engine/tutorial/useTutorialSteps'
 import { useNarration } from '@/engine/narration/useNarration'
 import type { PhaseOutcome, SceneProps } from '@/engine/types'
@@ -13,6 +13,7 @@ import { SYSTEM_FILE, type StorageEvent, type StorageState } from '../logic/mode
 import { computeOutcome } from '../logic/outcome'
 import { applyOperation, chunksOf, createGame, defragment } from '../logic/rules'
 import type { StorageDevice, StoragePhase, StorageTutorialTrigger } from '../phases'
+import { DiskGrid, type DiskBlockView } from './DiskGrid'
 import './storage.css'
 
 function stepTextFor(phase: StoragePhase, index: number): string | null {
@@ -319,23 +320,14 @@ export default function StorageScene({
         )}
       </div>
 
-      <div
-        className="storage-disk"
-        data-disk
-        style={
-          {
-            '--storage-cols-mobile': phase.diskBlocks / phase.columns,
-            '--storage-cols-desktop': phase.columns,
-          } as CSSProperties
-        }
-      >
-        {Array.from({ length: phase.diskBlocks }, (_, i) => {
+      <DiskGrid
+        blocks={Array.from({ length: phase.diskBlocks }, (_, i): DiskBlockView => {
           const owner = game.disk[i] ?? null
           const isSystem = owner === SYSTEM_FILE
           const isFree = owner === null
           const isSelected = selected.includes(i)
           const isHighlighted = !!owner && owner !== SYSTEM_FILE && owner === highlight
-          const state = isSystem
+          const state: DiskBlockView['state'] = isSystem
             ? 'system'
             : isFree
               ? isSelected
@@ -373,31 +365,19 @@ export default function StorageScene({
             }
           }
 
-          return (
-            <button
-              key={i}
-              type="button"
-              data-block={i}
-              data-state={state}
-              aria-label={label}
-              aria-pressed={isSelected || isHighlighted}
-              disabled={game.status !== 'playing'}
-              className="storage-block"
-              onClick={() => onBlockClick(i)}
-            >
-              <span className="storage-block-n" aria-hidden="true">
-                {i + 1}
-              </span>
-              {linkTo !== null && (
-                <span className="storage-link" aria-hidden="true">
-                  <Icon name="arrow-right" className="size-3" />
-                  {fill(UI.disk.continuesAt, { n: linkTo + 1 })}
-                </span>
-              )}
-            </button>
-          )
+          return {
+            index: i,
+            state,
+            label,
+            ...(linkTo !== null
+              ? { linkLabel: fill(UI.disk.continuesAt, { n: linkTo + 1 }) }
+              : {}),
+          }
         })}
-      </div>
+        columns={phase.columns}
+        disabled={game.status !== 'playing'}
+        onBlockClick={onBlockClick}
+      />
     </GameFrame>
   )
 }
