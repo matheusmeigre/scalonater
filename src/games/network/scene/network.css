@@ -1,0 +1,216 @@
+/* Layout da partida (README: só "level", "stats", "ctrl" e "nar" são contrato
+   do GameFrame; "field" e as áreas dentro dele são só desta estação). */
+.network-layout {
+  display: grid;
+  width: 100%;
+  max-width: 960px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) {
+  .network-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+
+.network-field {
+  grid-area: field;
+  display: grid;
+  gap: 10px;
+  min-height: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(140px, 1fr) auto;
+  grid-template-areas:
+    'dns'
+    'tray'
+    'graph'
+    'arrivals';
+}
+@media (min-width: 760px) {
+  .network-field {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'dns dns'
+      'tray graph'
+      'tray arrivals';
+  }
+}
+
+.network-dns {
+  grid-area: dns;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  padding: 10px 12px;
+}
+.network-dns-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.network-dns-status {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--color-muted);
+}
+
+.network-tray {
+  grid-area: tray;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  padding: 10px 12px;
+  overflow-x: auto;
+}
+.network-tray-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+@media (min-width: 760px) {
+  .network-tray-list {
+    flex-direction: column;
+  }
+}
+
+.network-btn,
+.network-packet {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.network-packet-selected {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+  box-shadow: 0 0 0 2px var(--color-gold) inset;
+}
+.network-packet:disabled {
+  opacity: 0.5;
+}
+
+.network-graph-wrap {
+  grid-area: graph;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  padding: 10px 12px;
+}
+.network-graph {
+  position: relative;
+  flex: 1;
+  min-height: 140px;
+  margin-top: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+.network-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.network-link {
+  stroke: var(--color-line-strong);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+.network-link-congested {
+  stroke: var(--color-danger);
+}
+.network-node {
+  position: absolute;
+  min-width: 44px;
+  min-height: 44px;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-weight: 700;
+}
+.network-node-origin {
+  border-color: var(--color-mint);
+}
+.network-node-destination {
+  border-color: var(--color-cyan);
+}
+.network-node-reachable {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px var(--color-gold-depth);
+}
+.network-node:disabled {
+  opacity: 0.6;
+}
+.network-packet-dot {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--color-orange);
+  color: var(--color-on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.network-arrivals {
+  grid-area: arrivals;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  padding: 10px 12px;
+}
+.network-boxes {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.network-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 2px dashed var(--color-line);
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.network-box-filled {
+  border-style: solid;
+  border-color: var(--color-mint);
+  color: var(--color-ink);
+  background: var(--color-panel);
+}
