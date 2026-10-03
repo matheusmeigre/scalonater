@@ -303,6 +303,82 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   fonte no `compact:`. Vale revisar outras estações com título de uma palavra longa (ex.:
   "Interrupções").
 
+## Etapa 10 — Rede
+
+Estação `network`: dividir uma mensagem em pacotes numerados e encaminhá-los "tocar → tocar"
+(pacote, depois roteador) por um grafo fixo de roteadores até o destino, remontando a mensagem
+em caixinhas numeradas fora de ordem. F2 introduz enlaces congestionados (descarte + vida), F3
+perda de pacote com confirmação/reenvio automático por timeout, F4 resolução de DNS antes do
+envio. Design doc: `docs/design/network.md` (seguido sem alterações de mecânica; só completei
+números concretos que o doc deixa em aberto — ver abaixo). `meta.released: true` por instrução
+explícita desta tarefa (publicar ao mergear), e não `false` como a política padrão de
+`docs/PLANEJAMENTO.md` (seção 5) pede para estações novas — igual ao combinado da Etapa 0.5 para
+o Núcleos.
+
+### Suposições
+
+- **Só "tocar → tocar", sem arrastar:** o design doc descreve o toque como o verbo central e o
+  arraste como alternativa opcional ("nenhuma fase depende de arrastar"). Como aqui o toque já é
+  o mecanismo principal (diferente do Núcleos, onde o arraste é o principal e o toque é a
+  alternativa), implementei só o toque — já cobre teclado e acessibilidade sem precisar do kit
+  `src/ui/dnd`. Não há arrastar nesta estação.
+- **Mensagens entregues em sequência, não todas ao mesmo tempo:** só os pacotes da mensagem
+  atual (`activeIndex`) ficam disponíveis na bandeja de saída; a próxima mensagem só aparece
+  quando a atual é remontada. Isso mantém uma única bandeja e um único conjunto de caixinhas de
+  chegada visíveis por vez (o design doc não detalha isso explicitamente, só descreve pacotes
+  "fora de ordem" dentro da mesma mensagem).
+- **Grafo bidirecional:** cada `RouterLink` do contrato tem `from`/`to`, mas tratei como uma
+  aresta não-direcionada (um pacote pode andar dos dois lados) — o design doc fala em "escolher
+  o caminho", não em mão única, e a F2 só faz sentido com pelo menos duas rotas utilizáveis nos
+  dois sentidos.
+- **Enlace cheio descarta e custa vida só quando o jogador tenta enviar por ele** (`capacity` da
+  F2 = 1 no enlace mais lento): não há descarte "espontâneo" por fila cheia sem ação do jogador,
+  já que o jogo é por decisão, não por reflexo (risco listado no design doc: "F2/F3 parecerem
+  depender de reflexo").
+- **ACK implícito na entrega:** o design doc lista `sendAck(state, packetId)` como função
+  separada de `resendIfTimeout`. Como a entrega (`status: 'delivered'`) já remove o pacote do
+  conjunto de pacotes "perdidos aguardando reenvio", um ACK explícito nunca muda o resultado — a
+  confirmação é implícita na própria entrega. Não criei essa função (ver nota no design doc vs.
+  implementação).
+- **DNS (F4) recuperável:** resolver o nome errado marca a tentativa como `wrongAddress` (os
+  pacotes já enviados com esse endereço nunca chegam), mas o jogador pode tocar em outro
+  endereço a qualquer momento para corrigir e reenviar os pacotes seguintes — não é uma
+  derrota automática, para não virar uma armadilha de "um toque errado perde a fase" (o design
+  doc só diz "Enviar para o endereço errado" como forma de perder, sem detalhar se é recuperável).
+- **Números concretos calibrados à mão, sem playtest** (como a Etapa 7 fez para Armazenamento):
+  durações (70–100 s), `goal` (2 mensagens por fase), `packetCount` (3–4), `lossChance` da F3
+  (0.35), `ACK_TIMEOUT_S` (6 s) e os limiares de estrela por fase. Vale revisar depois de jogar
+  de verdade.
+- **Estrelas no modo sem tempo:** como as fases usam `timeLeft`/`resends` como métrica e não há
+  relógio nesse modo, caí para a fração de vidas restantes (aproximação documentada em
+  `logic/outcome.ts`; mesmo problema que o Núcleos resolveu de um jeito específico para CPU, que
+  não se aplica aqui).
+- **Sem dificuldade nem modo automático:** `hasDifficulty: false`, `hasAutoplay: false` — o
+  design doc não descreve nenhum dos dois para esta estação.
+
+### Pedidos à base
+
+Não editei nada fora de `src/games/network/**` e `e2e/network.spec.ts`, mas um achado:
+
+- **Bug pré-existente no painel "Próxima fase" do resultado (`ResultScreen`/`PlayScreen.tsx`,
+  base, fora do meu escopo):** no iPhone SE (375px), depois de vencer uma fase, o `<b
+  class="font-display ...">` que mostra "Fase N · {título da próxima fase}" não quebra linha.
+  Como toda estação nomeia a fase 1 como "Fase 1" em `copy.phases['nivel-1'].title` (igual ao
+  rótulo automático "Fase N"), o texto fica duplicado ("Fase 1 · Fase 1") e estoura a largura da
+  tela. Reproduzi o mesmo problema com `src/games/storage` (546px de `scrollWidth` num viewport
+  de 375px) navegando pela mesma jornada — não é algo que esta estação introduziu, é um bug
+  existente desde a Etapa 7 (ou antes) que meu `e2e/network.spec.ts` só expôs por testar esse
+  trecho explicitamente. Por isso meu teste não chama `expectNoHorizontalScroll` logo depois do
+  "Fase concluída!" (comentário no próprio arquivo aponta para aqui, como o already combinado
+  padrão do `storage.spec.ts`). Correção sugerida: `overflow-wrap`/`break-words` nesse `<b>`, ou
+  evitar repetir o rótulo quando o título da fase já é literalmente "Fase N". Vale revisar todas
+  as estações.
+- **`storage.spec.ts` (fora do meu escopo) está hoje quebrado pela própria evolução da trilha:**
+  rodei-o para comparar o bug acima e `abertura do Kernel → tutorial → resultado…` falha porque
+  a estação `storage` aparece "locked" no mapa (exige `cores` completo na ordem "linear, com
+  exceção" e o teste não semeia esse progresso). Não é algo desta etapa, mas registro porque
+  pode pegar quem for revisar as métricas de CI depois que mais estações forem mergeadas.
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
@@ -315,3 +391,6 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   por simulação, não por playtest humano; vale revisar a dificuldade depois de jogar de
   verdade. A derrota por "sem espaço" (Fases 1–2) tem regra e teste de unidade, mas não é
   alcançável pela jornada normal das fases como calibradas (ver suposições da Etapa 7).
+- **Rede (Etapa 10):** números de duração/estrelas calibrados à mão, sem playtest (ver
+  suposições da Etapa 10). O e2e completo (`npm run test:e2e` nos 6 formatos) rodou e passou,
+  mas não foi repetido exaustivamente — só o suficiente para confirmar que não é flaky.
