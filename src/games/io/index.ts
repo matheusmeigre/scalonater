@@ -4,6 +4,7 @@ import { CARDS, COPY } from './content'
 import { IO_ICONS } from './icons'
 import { resolveConfig } from './logic/model'
 import { PHASES } from './phases'
+import { IoPreviewDemo } from './scene/IoPreviewDemo'
 
 /**
  * Interrupções e E/S: a CPU guarda o contexto da tarefa principal antes de
@@ -32,6 +33,7 @@ export const ioGame = defineGame({
     }
   },
   icons: IO_ICONS,
+  preview: IoPreviewDemo,
 })
 
 export default ioGame
