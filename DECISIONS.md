@@ -198,6 +198,111 @@ todos os testes de antes passando sobre a base nova.
 - **Deploy (pendência herdada da Etapa 0):** o `vercel login` continua pendente; não foi
   possível configurar os previews por branch nesta sessão (depende de acesso externo).
 
+## Etapa 7 — Armazenamento
+
+Estação `storage`: um disco em grade de 24 blocos (6×4, girando para 4×6 no celular em pé) e
+uma tabela de arquivos. O jogador salva, apaga e reaproveita espaço; a Fase 2 força
+fragmentação, a Fase 3 introduz o custo de deslocamento da cabeça no HD (contra o custo fixo
+do SSD) e a Fase 4 cobra usar "Desfragmentar". Design doc: `docs/design/storage.md` (seguido
+sem alterações).
+
+### Suposições
+
+- **`released: false`** (o padrão documentado em `docs/PLANEJAMENTO.md`, seção 5, para toda
+  estação nova). Tentei `true` primeiro, lembrando a leitura de que a Etapa 0.5 "não tem gate
+  por padrão" — mas isso é só sobre o Núcleos (já `true` desde a Etapa 0); a própria seção 5
+  lista "Novos objetos de jogo usam `released: false`" como item da definição de pronto. Com
+  `released: true`, a estação `storage` (que vem antes do Núcleos na trilha) passava a ser
+  pré-requisito dele pela regra "linear, com exceção", e isso **quebrou**
+  `e2e/app.spec.ts` (teste já existente, da jornada do Núcleos — não é meu para editar), que
+  assume o Núcleos disponível sem pré-requisitos. Com `false`, o Núcleos volta a ficar como
+  antes e a estação nova fica "em construção" até o dono do projeto decidir liberá-la.
+- **Para rodar o e2e desta estação localmente** (`e2e/storage.spec.ts` e o `storage` dentro de
+  `e2e/layout.spec.ts`), é preciso **`VITE_SHOW_UNRELEASED=1`** na build de produção que o
+  Playwright sobe, já que ela não é um jogo liberado:
+  `PORT=4303 VITE_SHOW_UNRELEASED=1 npx playwright test` (em vez de `npm run test:e2e` puro).
+  Isso é o mecanismo já documentado para revisão (`npm run dev` já faz isso sozinho;
+  `registry.ts` já lê essa variável) — não editei nenhum arquivo de configuração para isso, só
+  passei a variável na hora de rodar. **Pedido à base:** com `released: false` como padrão,
+  **todo** `e2e/<id>.spec.ts` de uma estação nova vai falhar no job de e2e do
+  `.github/workflows/ci.yml` como está hoje, porque ele não passa `VITE_SHOW_UNRELEASED=1`
+  (só `PORT`). Vale a base acrescentar essa variável ao job de e2e do CI (ou criar um job
+  separado com ela) antes da próxima estação ser integrada.
+- **Grade de 24 blocos mantida** (não precisou cair para 16): a grade 4×6 no celular em pé coube
+  com blocos de 44px de sobra, usando `minmax(44px, 1fr)` e as variáveis CSS
+  `--storage-cols-mobile`/`--storage-cols-desktop` (= `diskBlocks/columns` e `columns`), por
+  fase — a mesma numeração em ordem de leitura vale nos dois layouts porque o grid só reflui os
+  mesmos blocos, na mesma ordem do DOM.
+- **Colocação manual, não "primeiro-ajuste automático", na jogabilidade real:** o design doc
+  descreve o jogador tocando em blocos livres "na ordem que quiser". Implementei
+  `applyOperation(state, operation, device, blocosEscolhidos?)` para usar exatamente os blocos
+  tocados pelo jogador (fragmentado ou não, conforme o toque) e cair para `allocate()`
+  (primeiro-ajuste automático) só quando nenhuma escolha é passada — usado por `delete` (não há
+  blocos para escolher) e como base determinística para os testes de unidade. Isso faz a
+  fragmentação ser uma consequência real da escolha do jogador, não só do layout da fase.
+- **`seekCost` implementado ao pé da letra do contrato do design doc:** no HD, só a soma das
+  distâncias × `hdSeekCostPerBlock` (sem somar `baseCostPerBlock`); no SSD, só
+  `baseCostPerBlock * quantidade`. Ou seja, `baseCostPerBlock` só importa no SSD — uma
+  simplificação que ainda cumpre a lição (HD penaliza posição, SSD não) sem um segundo termo
+  competindo na mesma conta.
+- **Derrota por "sem espaço" (Fases 1–2) é uma regra testada isoladamente, não alcançável pela
+  sequência fixa das fases como calibrei:** como as `operations` de cada fase são fixas (sem
+  sorteio) e o jogador não escolhe *quais* operações acontecem, só *onde* colocar cada arquivo,
+  a quantidade total de blocos livres em qualquer momento não depende da posição escolhida —
+  só da contagem, que dimensionei para nunca faltar nas Fases 1 e 2. A regra existe e tem teste
+  de unidade direto (`applyOperation` com um disco pequeno de propósito), mas a jornada e2e de
+  derrota usa a Fase 3 (tempo no HD), que É alcançável pela escolha do jogador (blocos
+  espalhados de propósito). Caso o dono do projeto queira uma derrota por espaço realmente
+  jogável, a mudança natural é permitir que o jogador escolha *qual* arquivo apagar (não só
+  aceitar o pedido fixo) — ficaria para uma iteração futura, não implementada aqui.
+- **Pontuação inventada:** o design doc não detalha números de pontos para esta estação (só os
+  do Núcleos, que são de outro jogo). Usei `registerHit(scoring, 50, 15)` por operação limpa,
+  `registerHit(scoring, 30, 5)` quando fragmenta (ainda pontua, só menos — fragmentar não é
+  erro) e `registerHit(scoring, 20, 5)` por apagar; `breakCombo` só no "sem espaço".
+- **Estrelas por fase:** Fases 1–2 (`opsLeft`) medem `(3 - noSpaceCount) / 3`, ou seja, quantas
+  das 3 faltas de espaço permitidas o jogador evitou (sempre 3 estrelas se a sequência de
+  operações nunca falha, o que é o caso normal destas duas fases — o desafio delas é espacial,
+  não de pontuação). Fases 3–4 (`timeLeft`) medem a fração do orçamento de tempo que sobrou.
+  Limiares calibrados à mão simulando a sequência fixa de operações de cada fase com escolha de
+  blocos "razoável" (os primeiros blocos livres, em ordem); não houve playtest humano.
+- **`maxTotalTime` calibrado por simulação, não por playtest:** Fase 3 = 150 (jogo razoável
+  chega a ~115 no HD); Fase 4 = 125 (sem desfragmentar chega a 130, com uma desfragmentação bem
+  posicionada chega a ~120). Como a geometria depende de qual bloco exato o jogador toca, vale
+  revisar esses números depois de um playtest humano real.
+- **Tutorial com etapa extra além de `operations`:** o contrato de fases do design doc não lista
+  um campo de tutorial guiado (ele é específico do Núcleos). Acrescentei `tutorial?:
+  readonly { id; advanceOn: 'save' | 'search' }[]` em `StoragePhase`, só para esta estação,
+  seguindo o padrão de "fases como dados" do README (extensão própria do jogo, sem mudar nada
+  compartilhado). A etapa "achar o arquivo pela tabela" do tutorial não conta como uma
+  `operation` (não afeta `goalValues`), só atrasa o `onFinish` da cena até o jogador procurar o
+  arquivo "A" na tabela.
+- **`defragment()` não reposiciona blocos de sistema:** eles ficam fixos nas próprias posições
+  (não são um `FileEntry`, só uma marca no array `disk`); a Fase 4 (a única com
+  `defragAvailable: true`) não tem `reservedBlocks`, então isso nunca é exercitado em jogo —
+  documentado por segurança caso uma fase futura combine as duas coisas.
+- **Sem dificuldade nem modo automático:** `hasDifficulty: false`, `hasAutoplay: false` — o
+  design doc não descreve nenhum dos dois para esta estação (diferente do Núcleos).
+
+### Pedidos à base
+
+Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas dois pedidos:
+
+- **`.github/workflows/ci.yml`:** acrescentar `VITE_SHOW_UNRELEASED: '1'` ao `env` do job de
+  e2e (hoje só tem `PORT`). Sem isso, o e2e de qualquer estação nova com `released: false` (o
+  padrão) falha no CI, porque a build de produção não mostra a estação. Ver suposição acima.
+- **Bug encontrado em `src/shell/screens/GameHub.tsx` (cabeçalho do hub, fora do meu
+  escopo):** no iPhone SE (375px), o título da estação (`<h1 className="... uppercase ...">`)
+  vaza ~10px para fora da tela quando é uma palavra única mais longa que "Núcleos" — é o caso
+  de "Armazenamento" (13 letras, sem espaço para quebrar linha). Reproduzido isolando o
+  elemento: a caixa do `h1` mede 271px, mas o texto pinta até 385px num viewport de 375px,
+  porque o container é um item flex com `min-w-0` (encolhe) ao lado de um ícone de tamanho
+  fixo, e uma palavra única não tem onde quebrar. Não editei `GameHub.tsx` (fora do meu
+  escopo), mas por isso meu `e2e/storage.spec.ts` não chama `expectNoHorizontalScroll` logo
+  depois da abertura (comentário no próprio arquivo aponta para aqui). Correção sugerida, de
+  baixo risco: `overflow-wrap: anywhere` (ou `break-words`) nesse `h1`, ou reduzir o tamanho da
+  fonte no `compact:`. Vale revisar outras estações com título de uma palavra longa (ex.:
+  "Interrupções").
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
@@ -206,3 +311,7 @@ todos os testes de antes passando sobre a base nova.
   publicar em produção.
 - CI (`.github/workflows/ci.yml`) nunca rodou de verdade; revisar no primeiro push/PR real.
 - `vercel login` e os previews por branch (`VITE_SHOW_UNRELEASED=1`) continuam pendentes.
+- **Armazenamento (Etapa 7):** os limiares de tempo (Fases 3–4) e de estrelas foram calibrados
+  por simulação, não por playtest humano; vale revisar a dificuldade depois de jogar de
+  verdade. A derrota por "sem espaço" (Fases 1–2) tem regra e teste de unidade, mas não é
+  alcançável pela jornada normal das fases como calibradas (ver suposições da Etapa 7).
