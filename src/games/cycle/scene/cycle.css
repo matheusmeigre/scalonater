@@ -1,0 +1,161 @@
+/* ---------------------------------------------------------------------------
+   Layout da cena do Ciclo da CPU.
+   - celular em pé: HUD, registradores (PC/ACC), estações (Buscar → Decodificar
+     → Executar), estante de gavetas, Kernel;
+   - celular deitado / tablet deitado / desktop: registradores e estações à
+     esquerda, estante à direita (design doc, "Layout mobile e desktop").
+   --------------------------------------------------------------------------- */
+.cycle-layout {
+  display: grid;
+  width: 100%;
+  max-width: 1100px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level ctrl'
+    'stats stats'
+    'regs regs'
+    'stations stations'
+    'shelf shelf'
+    'nar nar';
+}
+@media (min-width: 760px) and (min-height: 521px) {
+  .cycle-layout {
+    gap: 12px;
+  }
+}
+@media (orientation: landscape) and (max-height: 520px), (min-width: 1024px) and (min-height: 600px) {
+  .cycle-layout {
+    height: 100dvh;
+    min-height: 0;
+    grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level stats'
+      'regs shelf'
+      'stations shelf'
+      'nar shelf'
+      'ctrl shelf';
+  }
+}
+
+.cycle-regs-wrap {
+  grid-area: regs;
+}
+.cycle-registers {
+  display: flex;
+  gap: 8px;
+}
+.cycle-register {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  transition: border-color 0.2s, background 0.2s;
+}
+.cycle-register.is-active {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}
+
+/*
+ * Empilhadas (não lado a lado) em qualquer tamanho de tela: a paleta de 5
+ * peças (Decodificar) precisa da largura inteira para cada botão chegar aos
+ * 44px de toque — três colunas estreitas (celular, ou a barra lateral do
+ * layout grande) deixariam a paleta pequena demais.
+ */
+.cycle-stations {
+  grid-area: stations;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.cycle-station {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 56px;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+}
+.cycle-station.is-current {
+  border-color: var(--color-cyan);
+  background: var(--color-panel-selected);
+}
+.cycle-station-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--color-cyan);
+}
+.cycle-station-content {
+  font-family: var(--font-display);
+  font-size: 16px;
+}
+
+.cycle-palette {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.cycle-op-btn,
+.cycle-execute-btn {
+  min-height: 44px;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.cycle-op-btn:not(:disabled):hover,
+.cycle-execute-btn:not(:disabled):hover {
+  border-color: var(--color-cyan);
+}
+.cycle-op-btn:disabled,
+.cycle-execute-btn:disabled {
+  opacity: 0.45;
+}
+.cycle-execute-btn {
+  width: 100%;
+  min-height: 48px;
+  font-size: 14px;
+}
+
+.cycle-shelf-wrap {
+  grid-area: shelf;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-content: start;
+  overflow: auto;
+}
+
+[data-highlight='true'] {
+  outline: 3px solid var(--color-gold);
+  outline-offset: 3px;
+  animation: cycle-tutorial-glow 1.4s ease-in-out infinite;
+}
+@keyframes cycle-tutorial-glow {
+  50% {
+    outline-color: rgb(255 201 64 / 0.35);
+  }
+}
