@@ -1,0 +1,116 @@
+/* Layout da partida (contrato do GameFrame: áreas "level", "stats", "ctrl" e
+   "nar"; "table" e "disk" são do próprio jogo). Celular em pé: tabela em
+   cima do disco, empilhados. Desktop/tablet deitado (>=760px): tabela ao
+   lado do disco, como no design doc. */
+.storage-layout {
+  display: grid;
+  width: 100%;
+  max-width: 980px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'table'
+    'disk'
+    'nar';
+}
+@media (min-width: 760px) {
+  .storage-layout {
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'table disk'
+      'nar nar';
+  }
+}
+
+.storage-table {
+  grid-area: table;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 10px;
+}
+
+.storage-disk {
+  grid-area: disk;
+  display: grid;
+  grid-template-columns: repeat(var(--storage-cols-mobile), minmax(44px, 1fr));
+  gap: 5px;
+  align-content: start;
+}
+@media (min-width: 760px) {
+  .storage-disk {
+    grid-template-columns: repeat(var(--storage-cols-desktop), minmax(44px, 1fr));
+  }
+}
+
+.storage-block {
+  position: relative;
+  aspect-ratio: 1;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1px;
+}
+.storage-block:disabled {
+  cursor: default;
+}
+.storage-block[data-state='free'] {
+  background: var(--color-panel-raised);
+}
+.storage-block[data-state='selected'] {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}
+.storage-block[data-state='system'] {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-line-strong),
+    var(--color-line-strong) 4px,
+    var(--color-panel) 4px,
+    var(--color-panel) 8px
+  );
+  border-color: var(--color-line-strong);
+}
+.storage-block[data-state='occupied'] {
+  border-color: var(--color-cyan);
+  background: var(--color-tint-cyan);
+}
+.storage-block[data-state='highlighted'] {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}
+.storage-block-n {
+  font-size: 9px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.storage-link {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translate(-50%, 100%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 8px;
+  white-space: nowrap;
+  color: var(--color-gold);
+  pointer-events: none;
+}
