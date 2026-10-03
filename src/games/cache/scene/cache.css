@@ -1,0 +1,148 @@
+/* Layout da estação Cache. GameFrame exige as áreas "level", "stats", "ctrl"
+   e "nar"; o campo de jogo (pedido da CPU, bancadas L1/L2 e a estante da
+   RAM) é todo nosso. */
+.cache-layout {
+  display: grid;
+  width: 100%;
+  max-width: 900px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'level'
+    'ctrl'
+    'stats'
+    'field'
+    'nar';
+}
+@media (min-width: 760px) {
+  .cache-layout {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'level ctrl'
+      'stats stats'
+      'field field'
+      'nar nar';
+  }
+}
+
+.cache-field {
+  grid-area: field;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-content: start;
+}
+
+.cache-request {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 56px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 10px 14px;
+  font-weight: 700;
+}
+.cache-request[data-traveling='true'] {
+  border-color: var(--color-cyan);
+}
+
+.cache-level {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 10px;
+}
+.cache-level[data-awaiting='true'] {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px var(--color-gold-depth);
+}
+
+.cache-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.cache-slot {
+  display: flex;
+  min-height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  padding: 6px;
+}
+.cache-slot.is-empty {
+  opacity: 0.6;
+}
+.cache-slot:disabled {
+  opacity: 0.85;
+}
+.cache-slot.is-evictable {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+  animation: cache-pulse 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cache-slot.is-evictable {
+    animation: none;
+  }
+}
+.cache-slot-hit,
+.cache-slot-l2-hit {
+  border-color: var(--color-mint);
+  background: var(--color-panel-selected);
+}
+.cache-slot-miss {
+  border-color: var(--color-danger);
+}
+.cache-slot-evicted {
+  border-color: var(--color-line);
+}
+.cache-slot-icon {
+  width: 16px;
+  height: 16px;
+}
+.cache-slot-value {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+@keyframes cache-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-gold-depth);
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--color-gold-depth);
+  }
+}
+
+.cache-evict-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-gold);
+  text-align: center;
+}
+
+.cache-ram {
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  padding: 10px;
+}
