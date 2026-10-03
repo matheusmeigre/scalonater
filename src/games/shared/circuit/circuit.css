@@ -1,0 +1,63 @@
+/* Encaixe (CircuitSlot) e peça de estoque (GatePiece), compartilhados entre
+   Portas lógicas e a ULA. O estado nunca é só cor: sempre tem o texto da
+   porta ("AND"/"OR"/"NOT"...) e, no encaixe vazio, um "?". */
+.circuit-slot {
+  display: flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md, 10px);
+  border: 2px dashed var(--color-line);
+  background: var(--color-panel-raised);
+  color: var(--color-ink);
+  font-family: var(--font-display, inherit);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 6px 10px;
+}
+.circuit-slot--filled {
+  border-style: solid;
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+}
+.circuit-slot[data-over='true'] {
+  border-color: var(--color-cyan);
+  background: var(--color-tint-cyan);
+}
+.circuit-slot-gate {
+  font-size: 14px;
+}
+
+.gate-piece {
+  display: flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--radius-md, 10px);
+  border: 2px solid var(--color-line);
+  background: var(--color-panel);
+  color: var(--color-ink);
+  font-family: var(--font-display, inherit);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+}
+.gate-piece--selected {
+  border-color: var(--color-gold);
+  background: var(--color-panel-selected);
+  box-shadow: 0 0 0 2px var(--color-gold) inset;
+}
+.gate-piece:disabled {
+  opacity: 0.4;
+}
+.gate-piece-count {
+  color: var(--color-muted);
+  font-size: 11px;
+}
