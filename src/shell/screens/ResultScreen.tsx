@@ -136,7 +136,7 @@ export function ResultScreen() {
           ))}
         </dl>
 
-        <div className="grid w-full gap-4 text-left lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="grid w-full grid-cols-1 gap-4 text-left lg:grid-cols-[minmax(0,1fr)_380px]">
           <Paper className="flex flex-col gap-3 p-[18px] sm:flex-row sm:gap-[22px] sm:px-7 sm:py-6">
             <span className="flex size-[76px] flex-none items-center justify-center rounded-[16px] bg-paper-ink">
               <Kernel mood="happy" className="size-14" />
@@ -181,9 +181,9 @@ export function ResultScreen() {
             )}
 
             {nextPhase ? (
-              <Panel className="flex flex-col gap-1.5 px-5 py-[18px]">
+              <Panel className="flex min-w-0 flex-col gap-1.5 px-5 py-[18px]">
                 <Label>{SHELL.result.nextPhase}</Label>
-                <b className="font-display text-[22px] font-normal">{`${phaseLabel(game, nextPhase)} · ${game.copy.phases[nextPhase.id]?.title ?? ''}`}</b>
+                <b className="wrap-anywhere font-display text-[22px] font-normal">{`${phaseLabel(game, nextPhase)} · ${game.copy.phases[nextPhase.id]?.title ?? ''}`}</b>
                 <span className="text-base leading-[1.4] text-muted">
                   {game.copy.phases[nextPhase.id]?.teaser}
                 </span>
