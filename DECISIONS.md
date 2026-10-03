@@ -303,6 +303,79 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   fonte no `compact:`. Vale revisar outras estações com título de uma palavra longa (ex.:
   "Interrupções").
 
+## Etapa 6 — Cache
+
+Estação `cache`: a CPU pede endereços automaticamente (~1,5s por pedido); o jogador só age
+quando o cache (3–4 espaços, L1 sozinho nas Fases 1–3, L1+L2 na Fase 4) enche numa falha —
+toca no espaço que deve sair. A pontuação é o tempo médio de acesso (menor é melhor). Design
+doc: `docs/design/cache.md` (seguido sem alterações no contrato de dados das fases).
+
+### Suposições
+
+- **Os "espaços de cache" são componente próprio** (`scene/CacheSlots.tsx`), como o design doc
+  manda — só a estante da RAM (`MemoryShelf`) e a viagem (`MemoryTrip`) vêm de
+  `src/games/shared/memory/`. A "RAM" mostrada é só decorativa (uma estante com todo o universo
+  de endereços da fase, criada uma vez por fase com `createMemory`/`writeMemory`): o cache
+  simula identidade de endereço (tag), não um valor de dado separado, então a gaveta mostra o
+  próprio endereço como conteúdo — suficiente para a lição ("a cópia veio da despensa"), sem
+  inventar um segundo conceito de "valor" que o design doc não pede.
+- **Estrutura de "espaço"**: um espaço do L1/L2 guarda um **bloco** de `blockSize` endereços
+  (1, ou 4 a partir da Fase 3) como unidade — a falha enche/libera um espaço inteiro de uma vez,
+  não endereço a endereço. Isso bate com o layout do design doc ("um espaço de bloco
+  visualmente maior") e simplifica a eviction: o jogador sempre escolhe um **espaço**, nunca um
+  endereço dentro de um bloco.
+- **Descida automática para o L2 (Fase 4):** quando o jogador esvazia um espaço do L1, o bloco
+  removido desce para o L2 (giro automático: ocupa um espaço vazio ou substitui o mais antigo).
+  Isso faz o L2 acumular "o que saiu da bancada de frente" sem exigir uma segunda decisão manual
+  do jogador — o design doc é explícito que a eviction é "a única ação manual do jogo".
+- **`insert(state, address, level, evictAddress?)` só é chamado com `level: 'l1'`** pela máquina
+  de passos (`logic/rules.ts`): toda falha busca primeiro no L1 (mais perto da CPU). A API
+  aceita `'l2'` também (usada internamente pela descida automática e testável direto em
+  `logic/rules.test.ts`), seguindo o contrato do design doc ao pé da letra.
+- **Tutorial sem decisão alguma:** `l1Slots: 2` e 2 pedidos guiados (o 1º força falha porque a
+  bancada começa vazia; o 2º repete o mesmo endereço via `temporalRepeatChance: 1` com histórico
+  de 1 posição, forçando acerto) nunca enchem o cache — o tutorial ensina acerto × falha sem
+  nenhum toque do jogador, como pede o design doc ("sem derrota", "guiado").
+- **Piso de pedidos antes de checar derrota (`RULES.minRequestsForLoss = 4`):** o 1º pedido de
+  qualquer fase de nível é sempre uma falha (a bancada começa vazia), e `latency.miss` por si só
+  já passava de alguns `maxAvgLatency` calibrados — sem este piso, o jogador perderia a fase no
+  1º pedido, antes de qualquer escolha. Não está no contrato do design doc (que só descreve
+  `computeOutcome` em termos de `avgLatency > maxAvgLatency`); é uma suposição minha para a
+  regra não contradizer a própria mecânica ("decisão, não reflexo"). A vitória não tem esse piso.
+- **Limiares de `maxAvgLatency`/estrelas calibrados por raciocínio, não por simulação
+  exaustiva nem playtest humano** (mesma ressalva já registrada pela Etapa 7/Armazenamento):
+  estimei a taxa de acerto esperada (`l1Slots / addressSpace`, ajustada pela localidade nas
+  Fases 2–3) e dei uma margem generosa para a variância de uma partida de 14–20 pedidos não
+  derrotar por puro acaso. Vale revisar depois de jogar de verdade — em especial a Fase 1, cujo
+  acesso é totalmente aleatório (sem localidade ainda), então a escolha de quem sai não tem uma
+  "resposta certa" matemática nesta fase: a lição ali é "você precisa decidir", não "a decisão
+  ótima existe".
+- **Sem dificuldade nem modo automático:** `hasDifficulty: false`, `hasAutoplay: false` — o
+  design doc não descreve nenhum dos dois para esta estação (mesmo padrão do Armazenamento). O
+  modo sem tempo ainda existe (desacelera a cadência dos pedidos a 75%, igual às outras
+  estações); ele não muda a mecânica de decisão, só o ritmo.
+- **Pontuação inventada:** o design doc não detalha números de pontos para Cache. Usei
+  `registerHit(scoring, 25, 10)` por acerto no L1 e `registerHit(scoring, 15, 10)` por acerto no
+  L2 (mais pontos no L1 — ele é "o bom resultado" — mas ainda pontua no L2 porque é bem melhor
+  que uma falha); `breakCombo` numa falha.
+
+### Pedidos à base
+
+Não editei nada fora de `src/games/cache/**` e `e2e/cache.spec.ts`, mas um pedido:
+
+- **Bug encontrado em `src/shell/screens/ResultScreen.tsx` (painel "Próxima fase", fora do meu
+  escopo):** no iPhone SE (375px), o rótulo da próxima fase (`<b className="font-display
+  text-[22px] font-normal">{fase · título}</b>`) vaza a tela quando o texto é longo — reproduzi
+  com "Fase 2 · Ele volta a pedir" (26 caracteres): a largura de rolagem chega a 414px num
+  viewport de 375px. O `<b>` fica dentro de uma coluna flex sem `min-w-0` nem
+  `truncate`/`break-words`, então o `min-width: auto` padrão do item flex impede o texto de
+  encolher ou quebrar linha. Por isso meu `e2e/cache.spec.ts` não chama
+  `expectNoHorizontalScroll` logo depois do resultado da Fase 1 (comentário no próprio arquivo
+  aponta para aqui) — mesmo padrão do bug de `GameHub.tsx` já registrado pela Etapa 7. Correção
+  sugerida, de baixo risco: `min-w-0` no container flex (`<div className="flex flex-col
+  justify-end gap-3.5">` ou no `Panel` que envolve o `<b>`) mais `break-words` no próprio `<b>`.
+  Vale revisar outras estações com combinações de "fase · título" longas.
+
 ## Pendências conhecidas
 
 - Testes em aparelhos físicos (Android intermediário e iPhone) e medição real de 60fps:
@@ -315,3 +388,8 @@ Não editei nada fora de `src/games/storage/**` e `e2e/storage.spec.ts`, mas doi
   por simulação, não por playtest humano; vale revisar a dificuldade depois de jogar de
   verdade. A derrota por "sem espaço" (Fases 1–2) tem regra e teste de unidade, mas não é
   alcançável pela jornada normal das fases como calibradas (ver suposições da Etapa 7).
+- **Cache (Etapa 6):** os limiares de `maxAvgLatency`/estrelas foram calibrados por raciocínio
+  (taxa de acerto esperada), não por simulação exaustiva nem playtest humano; vale revisar a
+  dificuldade de cada fase depois de jogar de verdade, especialmente a Fase 1 (acesso
+  totalmente aleatório, sem "resposta certa" de quem evictar). O bug do painel "Próxima fase"
+  em `ResultScreen.tsx` (acima) também vale corrigir antes do lançamento.
