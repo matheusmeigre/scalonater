@@ -118,7 +118,11 @@ async function matchCurrentTarget(page: Page) {
 async function winPhase(page: Page, targets: number) {
   for (let i = 0; i < targets; i++) {
     await matchCurrentTarget(page)
-    await page.waitForTimeout(80)
+    // 80ms era curto demais sob carga (suíte inteira em paralelo): a leitura
+    // do próximo alvo chegava a pegar o estado antigo antes do re-render,
+    // fazendo o último toque da fase sumir e o teste nunca ver `/resultado`
+    // (observado de forma intermitente, em projetos diferentes a cada run).
+    await page.waitForTimeout(150)
   }
   await expect(page).toHaveURL(/resultado$/, { timeout: 15_000 })
 }
