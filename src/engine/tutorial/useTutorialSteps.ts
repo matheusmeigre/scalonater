@@ -34,32 +34,43 @@ export interface UseTutorialStepsResult {
   reset: () => void
 }
 
+/** Estável entre renders: evita o "pular adiante" reiniciar em loop quando o
+ * chamador passa `undefined` (ex.: `phase.tutorial`, fase sem tutorial). */
+const NO_STEPS: readonly TutorialStepDef<string>[] = []
+
 /**
  * Tutorial guiado como dado: cada jogo descreve os passos (`steps`) e chama
  * `advance(trigger)` a cada evento relevante da própria lógica. Jogos que já
  * guardam o progresso do tutorial no próprio estado (como o Núcleos, numa
  * store Zustand) podem usar só `advanceTutorialStep` diretamente; este hook é
  * para o caso comum em que o React mesmo basta.
+ *
+ * `steps` pode ser `undefined` (fase sem tutorial guiado) sem risco de loop:
+ * internamente cai numa lista vazia estável. Se o chamador mesmo passar uma
+ * lista definida, ela deve manter a mesma referência entre renders enquanto
+ * representar a mesma fase (ex.: vinda direto de `phases.ts`, não recriada
+ * inline a cada render).
  */
 export function useTutorialSteps<Trigger extends string>(
-  steps: readonly TutorialStepDef<Trigger>[],
+  steps: readonly TutorialStepDef<Trigger>[] | undefined,
 ): UseTutorialStepsResult {
+  const effectiveSteps = steps ?? (NO_STEPS as readonly TutorialStepDef<Trigger>[])
   const [step, setStep] = useState(0)
   // Reinicia quando a lista de etapas muda (nova fase, novo recomeço). Ajustar o
   // estado durante a renderização evita um re-render extra de um useEffect.
-  const [seenSteps, setSeenSteps] = useState(steps)
-  if (seenSteps !== steps) {
-    setSeenSteps(steps)
+  const [seenSteps, setSeenSteps] = useState(effectiveSteps)
+  if (seenSteps !== effectiveSteps) {
+    setSeenSteps(effectiveSteps)
     setStep(0)
   }
 
   const advance = useCallback(
     (trigger: string | null) => {
-      setStep((s) => advanceTutorialStep(steps, s, trigger as Trigger | null))
+      setStep((s) => advanceTutorialStep(effectiveSteps, s, trigger as Trigger | null))
     },
-    [steps],
+    [effectiveSteps],
   )
   const reset = useCallback(() => setStep(0), [])
 
-  return { step, current: steps[step], done: step >= steps.length, advance, reset }
+  return { step, current: effectiveSteps[step], done: step >= effectiveSteps.length, advance, reset }
 }
